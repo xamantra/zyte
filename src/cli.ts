@@ -605,58 +605,10 @@ async function buildProject() {
     }
     await copyAndCompileFiles(process.cwd(), distDir);
     await bundleClientFiles();
-    // Create a production server entry point
+    // Create a minimal server entry point for the example project
     const serverEntry =
-      "import { serve } from 'bun';\n" +
-      "import { createSSR, SSRContext } from './index.js';\n\n" +
-      "const ssr = createSSR();\n" +
-      "const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;\n\n" +
-      "async function handler(request: Request): Promise<Response> {\n" +
-      "  const url = new URL(request.url);\n" +
-      "  const path = url.pathname;\n" +
-      "  try {\n" +
-      "    const query: Record<string, string> = {};\n" +
-      "    url.searchParams.forEach((value, key) => {\n" +
-      "      query[key] = value;\n" +
-      "    });\n" +
-      "    const context: SSRContext = {\n" +
-      "      params: {},\n" +
-      "      query,\n" +
-      "      headers: Object.fromEntries(request.headers.entries())\n" +
-      "    };\n" +
-      "    const html = await ssr.render(path, context);\n" +
-      "    return new Response(html, {\n" +
-      "      headers: {\n" +
-      "        'Content-Type': 'text/html; charset=utf-8',\n" +
-      "      },\n" +
-      "    });\n" +
-      "  } catch (error) {\n" +
-      "    console.error('Error rendering page:', error);\n" +
-      "    return new Response(`\n" +
-      "      <!DOCTYPE html>\n" +
-      "      <html>\n" +
-      "      <head>\n" +
-      "        <title>Error - Zyte SSR</title>\n" +
-      "      </head>\n" +
-      "      <body>\n" +
-      "        <h1>500 - Internal Server Error</h1>\n" +
-      "        <p>An error occurred while rendering the page.</p>\n" +
-      "        <pre>${error instanceof Error ? error.message : String(error)}</pre>\n" +
-      "      </body>\n" +
-      "      </html>\n" +
-      "    `, {\n" +
-      "      status: 500,\n" +
-      "      headers: {\n" +
-      "        'Content-Type': 'text/html; charset=utf-8',\n" +
-      "      },\n" +
-      "    });\n" +
-      "  }\n" +
-      "}\n" +
-      "console.log(`🚀 Zyte SSR server running on http://localhost:${port}`);\n" +
-      "serve({\n" +
-      "  port,\n" +
-      "  fetch: handler,\n" +
-      "});\n";
+      "import { startServer } from 'zyte-ssr/server';\n" +
+      "startServer();\n";
     await writeFile(join(distDir, 'server.js'), serverEntry);
     const routesDir = join(process.cwd(), 'routes');
     if (existsSync(routesDir)) {
