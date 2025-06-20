@@ -106,37 +106,14 @@ export async function startServer(options: { port?: number } = {}) {
     }
   }
 
-  if (typeof Bun !== 'undefined') {
-    // --- Bun ---
-    // @ts-ignore
-    const server = Bun.serve({
-      port,
-      async fetch(request: Request) {
-        return handler(request);
-      }
-    });
-    const host = server.hostname || '0.0.0.0';
-    console.log(`🚀 Zyte SSR server running on Bun at http://${host}:${port}`);
-  } else {
-    // --- Node ---
-    const http = await import('http');
-    const server = http.createServer(async (req: any, res: any) => {
-      const response = await handler(req);
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-      res.end(response.body);
-    });
-    server.listen(port, () => {
-      const address = server.address();
-      let host = 'localhost';
-      let realPort = port;
-      if (address && typeof address === 'object') {
-        host = (address as AddressInfo).address;
-        if (host === '::' || host === '0.0.0.0') host = 'localhost';
-        realPort = (address as AddressInfo).port;
-      }
-      console.log(`🚀 Zyte SSR server running on Node at http://${host}:${realPort}`);
-    });
-  }
+  // --- Bun ---
+  // @ts-ignore
+  const server = Bun.serve({
+    port,
+    async fetch(request: Request) {
+      return handler(request);
+    }
+  });
+  const host = server.hostname || '0.0.0.0';
+  console.log(`🚀 Zyte SSR server running on Bun at http://${host}:${port}`);
 } 

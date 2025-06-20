@@ -284,6 +284,7 @@ button:hover {
     const gitignore = `# Node/Bun
 node_modules/
 dist/
+build/
 .env
 *.log
 bun.lockb
