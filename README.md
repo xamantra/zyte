@@ -92,6 +92,15 @@ export function counterPage() {
 </html>
 ```
 
+### Async SSR Example
+```ts
+// src/routes/about/about.ts
+export async function aboutPage() {
+  const data = await fetchSomeData();
+  return `<div>Data: ${data}</div>`;
+}
+```
+
 ---
 
 ## Adding Routes

@@ -38,10 +38,19 @@ zyte-example/
       ...bundled client JS...
 ```
 
+### Example: Async SSR Component
+```ts
+// src/routes/about/about.ts
+export async function aboutPage() {
+  const data = await fetchSomeData();
+  return `<div>Data: ${data}</div>`;
+}
+```
+
 ---
 
 ## Key Conventions
-- **SSR components:** `.ts` files (not ending with `.client.ts`) in `src/app` or `src/routes/*` are treated as server-side entry points.
+- **SSR components:** `.ts` files (not ending with `.client.ts`) in `src/app` or `src/routes/*` are treated as server-side entry points. These can be synchronous or `async` functions (returning `Promise<string>`), so you can fetch data or perform async operations during SSR.
 - **Client code:** `.client.ts` files colocated with SSR components. These are bundled with esbuild and injected automatically into the HTML.
 - **HTML templates:** `.html` files matching the SSR component name are used for rendering.
 - **CSS:** `.css` files matching the component or route are automatically injected as `<link rel="stylesheet">` during SSR (no need to manually add in templates).
@@ -73,6 +82,8 @@ zyte-example/
 4. **Static File Serving:**
    - Server checks `dist/client` first, then `src/app`, then `src/routes` for static assets.
    - `/routes/...` URLs are mapped to `src/routes/...` for assets like CSS.
+
+* The template processor and SSR rendering fully support async SSR component functions. All `{{ functionName() }}` template calls are awaited, so you can use `async`/`await` in your SSR logic.
 
 ---
 
