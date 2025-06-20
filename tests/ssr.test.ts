@@ -3,6 +3,7 @@ import { ZyteSSR } from '../src/index';
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { createSSR } from '../src/index';
+import { setTimeout as delay } from 'timers/promises';
 
 const TMP_DIR = join(process.cwd(), 'tests', 'tmp');
 const APP_DIR = join(TMP_DIR, 'src', 'app');
@@ -155,6 +156,17 @@ describe('SSR Framework', () => {
     setupClientBundle();
     const html = await serverHandlerForTest(TMP_DIR, '/foo');
     expect(html).toContain('<script src="/client/routes/foo/foo.client.js"></script>');
+    cleanupAll();
+  });
+
+  it('renders an async SSR component', async () => {
+    // Setup async SSR component in app
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `export async function appPage() { await (new Promise(r => setTimeout(r, 10))); return '<h1>Async SSR</h1>'; }`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>\n<html><head></head><body>{{ appPage() }}</body></html>`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const html = await ssr.render('/', { params: {}, query: {}, headers: { accept: 'text/html' } });
+    expect(html).toContain('<h1>Async SSR</h1>');
     cleanupAll();
   });
 }); 

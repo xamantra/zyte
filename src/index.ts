@@ -87,7 +87,7 @@ export class ZyteSSR {
 </head>`);
       }
       const component = await this.loadComponent(appComponentPath);
-      let processedHtml = this.processTemplate(html, component, context);
+      let processedHtml = await this.processTemplate(html, component, context);
       if (context.headers['accept']?.includes('text/html')) {
         processedHtml = this.addInteractivityScript(processedHtml, { path: '/', component: 'src/app/app.ts' });
       }
@@ -121,7 +121,7 @@ export class ZyteSSR {
 </head>`);
     }
     const component = await this.loadComponent(componentPath);
-    let processedHtml = this.processTemplate(html, component, context);
+    let processedHtml = await this.processTemplate(html, component, context);
     if (context.headers['accept']?.includes('text/html')) {
       processedHtml = this.addInteractivityScript(processedHtml, route);
     }
@@ -147,35 +147,44 @@ export class ZyteSSR {
 
   private async loadComponent(componentPath: string): Promise<any> {
     if (extname(componentPath) === '.ts' || extname(componentPath) === '.js') {
-      const module = await import(componentPath);
+      const module = await import(componentPath + `?t=${Date.now()}`);
       return module;
     }
     throw new Error(`Unsupported component type: ${extname(componentPath)}`);
   }
 
-  private processTemplate(html: string, component: any, context: SSRContext): string {
-    // Simple template processing - replace {{ functionName() }} with actual function calls
-    return html.replace(/\{\{\s*(\w+\([^)]*\))\s*\}\}/g, (match, functionCall) => {
+  private async processTemplate(html: string, component: any, context: SSRContext): Promise<string> {
+    // Async template processing - replace {{ functionName() }} with awaited function calls
+    const regex = /\{\{\s*(\w+\([^)]*\))\s*\}\}/g;
+    let result = '';
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(html)) !== null) {
+      result += html.slice(lastIndex, match.index);
+      const functionCall = match[1];
       try {
-        // Extract function name and arguments
         const funcMatch = functionCall.match(/(\w+)\(([^)]*)\)/);
-        if (!funcMatch) return match;
-
-        const [, funcName, argsStr] = funcMatch;
-        const func = component[funcName];
-        
-        if (typeof func === 'function') {
-          // Parse arguments if any
-          const args = argsStr ? argsStr.split(',').map((arg: string) => arg.trim().replace(/['"]/g, '')) : [];
-          return func(...args);
+        if (!funcMatch) {
+          result += match[0];
+        } else {
+          const [, funcName, argsStr] = funcMatch;
+          const func = component[funcName];
+          if (typeof func === 'function') {
+            const args = argsStr ? argsStr.split(',').map((arg: string) => arg.trim().replace(/['"]/g, '')) : [];
+            const value = await func(...args);
+            result += value;
+          } else {
+            result += match[0];
+          }
         }
-        
-        return match;
       } catch (error) {
         console.error(`Error processing template function ${functionCall}:`, error);
-        return match;
+        result += match[0];
       }
-    });
+      lastIndex = regex.lastIndex;
+    }
+    result += html.slice(lastIndex);
+    return result;
   }
 
   private addInteractivityScript(html: string, route: RouteConfig): string {
