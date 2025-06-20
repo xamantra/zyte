@@ -1,0 +1,52 @@
+{
+  "name": "zyte-ssr",
+  "version": "1.0.0",
+  "description": "Zero-dependency TypeScript-first SSR framework for Bun",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "zyte": "./bin/zyte",
+    "zyte.cmd": "./bin/zyte.cmd",
+    "zyte.ps1": "./bin/zyte.ps1"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build:framework": "bun build src/*.ts --outdir dist --target bun",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:all": "bun run build:framework && bun run build:types",
+    "build:project": "bun run src/build.ts",
+    "dev": "bun run src/server.ts",
+    "start": "bun run dist/server.js",
+    "cli": "bun run src/cli.ts",
+    "zyte": "bun run bin/zyte"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "ssr",
+    "typescript",
+    "bun",
+    "framework",
+    "server-side-rendering",
+    "zero-dependencies"
+  ],
+  "author": "xamantra",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xamantra/zyte-ssr.git"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.0.0",
+    "esbuild": "^0.25.5"
+  }
+}
