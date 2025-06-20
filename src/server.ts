@@ -59,20 +59,23 @@ export async function startServer(options: { port?: number } = {}) {
       // Render the page
       let html = await ssr.render(path, context);
 
-      // Determine possible client bundle path
+      // Determine possible client bundle path dynamically
       let clientScriptPath = null;
-      if (path === '/' || path === '/app' || path === '/app/') {
-        // Main app page
+      const routeParts = path.split('/').filter(Boolean);
+      if (routeParts.length === 0 || path === '/app' || path === '/app/') {
+        // Home/app page
         if (existsSync(join(process.cwd(), 'dist', 'client', 'app', 'app.client.js'))) {
           clientScriptPath = '/client/app/app.client.js';
         }
       } else {
-        // Try to match /routes/<route>
-        const parts = path.split('/').filter(Boolean);
-        if (parts[0] === 'counter' && existsSync(join(process.cwd(), 'dist', 'client', 'routes', 'counter', 'counter.client.js'))) {
-          clientScriptPath = '/client/routes/counter/counter.client.js';
+        // For /routes/xyz or /xyz, look for /client/routes/xyz/xyz.client.js
+        // Support nested routes: /foo/bar -> /client/routes/foo/bar/bar.client.js
+        let routePath = routeParts.join('/');
+        let routeName = routeParts[routeParts.length - 1];
+        let candidate = join(process.cwd(), 'dist', 'client', 'routes', ...routeParts, `${routeName}.client.js`);
+        if (existsSync(candidate)) {
+          clientScriptPath = `/client/routes/${routePath}/${routeName}.client.js`;
         }
-        // Add more route checks here as needed
       }
       if (clientScriptPath) {
         html = html.replace('</body>', `<script src="${clientScriptPath}"></script>\n</body>`);

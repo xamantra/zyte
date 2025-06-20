@@ -107,7 +107,6 @@ export class ZyteSSR {
     } else {
       htmlPath = componentPath + '.html';
     }
-    console.log('Looking for HTML template at:', htmlPath);
     if (!existsSync(htmlPath)) {
       throw new Error(`HTML template not found for route: ${route.component}`);
     }
