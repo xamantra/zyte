@@ -2,6 +2,9 @@
 
 **Zero-dependency, TypeScript-first SSR framework for Bun.**
 
+[![codecov](https://codecov.io/gh/xamantra/zyte/branch/master/graph/badge.svg?token=X9RLWLHK1B)](https://codecov.io/gh/xamantra/zyte)
+[![bun](https://img.shields.io/badge/Bun-powered-blue?logo=bun&logoColor=white)](https://bun.sh)
+
 Zyte SSR is a simple, fast, and modern server-side rendering framework for Bun. It lets you build TypeScript-based SSR apps with seamless client-side interactivity—no config, no boilerplate, just code.
 
 ---
@@ -132,6 +135,11 @@ export async function aboutPage() {
 - `bun run build` — Builds for production (bundles client, emits server.js).
 - `bun run start` — Runs the production server.
 
+---
+
+> Note: This package is using an Http server from Bun that is not compatible with Node.js.
+
+> This project is entirely vibe-coded with Cursor. Use at your own risk. (made for fun)
 ---
 
 ## Documentation & Support

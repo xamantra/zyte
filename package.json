@@ -1,6 +1,6 @@
 {
   "name": "zyte-ssr",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Zero-dependency TypeScript-first SSR framework for Bun",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
