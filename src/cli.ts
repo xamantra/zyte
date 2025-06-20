@@ -367,6 +367,11 @@ async function addRoute(routeName?: string) {
     console.error('Route name is required. Usage: zyte add-route <route-name>');
     process.exit(1);
   }
+  routeName = routeName.replace(/^['"]|['"]$/g, '').trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(routeName)) {
+    console.error('Invalid route name. Only letters, numbers, dashes, and underscores are allowed.');
+    process.exit(1);
+  }
 
   const routesDir = join(process.cwd(), 'src', 'routes');
   const routeDir = join(routesDir, routeName);
