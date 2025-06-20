@@ -23,4 +23,16 @@ describe('Zyte CLI', () => {
     expect(existsSync(join(EXAMPLE_DIR, 'src', 'app', 'app.ts'))).toBe(true);
     expect(existsSync(join(EXAMPLE_DIR, 'src', 'routes', 'counter', 'counter.ts'))).toBe(true);
   });
+
+  it('adds a new route with zyte add-route', () => {
+    // Ensure project exists
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    execSync(`bun ${CLI} add-route about`, { cwd: EXAMPLE_DIR });
+    const aboutDir = join(EXAMPLE_DIR, 'src', 'routes', 'about');
+    expect(existsSync(join(aboutDir, 'about.ts'))).toBe(true);
+    expect(existsSync(join(aboutDir, 'about.html'))).toBe(true);
+    expect(existsSync(join(aboutDir, 'about.css'))).toBe(true);
+  });
 }); 
