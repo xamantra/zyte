@@ -62,6 +62,38 @@ my-app/
 
 ---
 
+## Example: Minimal Counter Route
+
+**src/routes/counter/counter.ts**
+```ts
+export function counterPage() {
+  return `
+  <div class="container">
+    <h1>Counter Example</h1>
+    <p>Current count: <span id="count">0</span></p>
+    <button id="increment">Increment</button>
+  </div>
+  `;
+}
+```
+
+**src/routes/counter/counter.html**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counter - Zyte SSR</title>
+</head>
+<body>
+  {{ counterPage() }}
+</body>
+</html>
+```
+
+---
+
 ## Adding Routes
 
 - **Recommended:** Use the CLI to scaffold a new route:
