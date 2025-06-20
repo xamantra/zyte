@@ -4,6 +4,7 @@
   "description": "Zero-dependency TypeScript-first SSR framework for Bun",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.js",

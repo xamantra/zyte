@@ -1,9 +1,9 @@
-import { serve } from 'bun';
 import { createSSR, SSRContext } from './index';
 import { extname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
+import type { AddressInfo } from 'net';
 
-export function startServer(options: { port?: number } = {}) {
+export async function startServer(options: { port?: number } = {}) {
   const ssr = createSSR({ baseDir: process.cwd() });
   const port = options.port ?? (process.env.PORT ? parseInt(process.env.PORT) : 3000);
 
@@ -106,9 +106,37 @@ export function startServer(options: { port?: number } = {}) {
     }
   }
 
-  console.log(`🚀 Zyte SSR server running on http://localhost:${port}`);
-  serve({
-    port,
-    fetch: handler,
-  });
+  if (typeof Bun !== 'undefined') {
+    // --- Bun ---
+    // @ts-ignore
+    const server = Bun.serve({
+      port,
+      async fetch(request: Request) {
+        return handler(request);
+      }
+    });
+    const host = server.hostname || '0.0.0.0';
+    console.log(`🚀 Zyte SSR server running on Bun at http://${host}:${port}`);
+  } else {
+    // --- Node ---
+    const http = await import('http');
+    const server = http.createServer(async (req: any, res: any) => {
+      const response = await handler(req);
+      response.headers.forEach((value, key) => {
+        res.setHeader(key, value);
+      });
+      res.end(response.body);
+    });
+    server.listen(port, () => {
+      const address = server.address();
+      let host = 'localhost';
+      let realPort = port;
+      if (address && typeof address === 'object') {
+        host = (address as AddressInfo).address;
+        if (host === '::' || host === '0.0.0.0') host = 'localhost';
+        realPort = (address as AddressInfo).port;
+      }
+      console.log(`🚀 Zyte SSR server running on Node at http://${host}:${realPort}`);
+    });
+  }
 } 

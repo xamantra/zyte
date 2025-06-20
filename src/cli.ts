@@ -4,12 +4,14 @@ import { mkdir, writeFile, copyFile, readdir, stat, watch } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { build as esbuildBuild } from 'esbuild';
+import { spawn } from 'child_process';
 
 const COMMANDS = {
   'new': 'Create a new Zyte SSR project',
   'add-route': 'Add a new route to the project',
   'dev': 'Start development server',
   'build': 'Build the project for production',
+  'start': 'Run the built server.js',
   'help': 'Show this help message'
 };
 
@@ -79,13 +81,10 @@ async function createNewProject(projectName?: string) {
       scripts: {
         "dev": "zyte dev",
         "build": "zyte build",
-        "start": "bun run dist/server.js"
+        "start": "bun dist/server.js"
       },
       dependencies: {
         "zyte-ssr": "latest"
-      },
-      devDependencies: {
-        "bun-types": "latest"
       }
     };
 
@@ -479,28 +478,9 @@ async function startDevServer() {
         }
       }
     })();
-    // Start the dev server
-    const { spawn } = await import('child_process');
-    const { fileURLToPath } = await import('url');
-    const { dirname, join: joinPath } = await import('path');
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const serverPath = joinPath(__dirname, 'server.js');
-    const serverProcess = spawn('bun', ['run', serverPath], {
-      stdio: 'inherit',
-      cwd: process.cwd(),
-      shell: process.platform === 'win32',
-    });
-    serverProcess.on('error', (error) => {
-      console.error('Failed to start development server:', error);
-      process.exit(1);
-    });
-    serverProcess.on('exit', (code) => {
-      if (code !== 0) {
-        console.error(`Development server exited with code ${code}`);
-        process.exit(code || 1);
-      }
-    });
+    // Directly import and call startServer from the framework
+    const { startServer } = await import('zyte-ssr/server');
+    startServer();
   } catch (error) {
     console.error('Failed to start development server:', error);
     process.exit(1);
@@ -608,7 +588,7 @@ async function buildProject() {
     // Create a minimal server entry point for the example project
     const serverEntry =
       "import { startServer } from 'zyte-ssr/server';\n" +
-      "startServer();\n";
+      "await startServer();\n";
     await writeFile(join(distDir, 'server.js'), serverEntry);
     const routesDir = join(process.cwd(), 'routes');
     if (existsSync(routesDir)) {
