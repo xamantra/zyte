@@ -113,3 +113,4 @@ test-results.xml
 example/
 *.cmd
 zyte-example/
+.coverage/lcov.info
