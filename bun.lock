@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "zyte-ssr",
+      "name": "zyte",
       "devDependencies": {
         "@types/bun": "^1.0.0",
         "esbuild": "^0.25.5",

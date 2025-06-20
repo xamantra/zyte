@@ -1,7 +1,6 @@
 import { createSSR, SSRContext } from './index';
 import { extname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
-import type { AddressInfo } from 'net';
 
 export async function startServer(options: { port?: number } = {}) {
   const ssr = createSSR({ baseDir: process.cwd() });

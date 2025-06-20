@@ -4,7 +4,6 @@ import { mkdir, writeFile, copyFile, readdir, stat, watch } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { build as esbuildBuild } from 'esbuild';
-import { spawn } from 'child_process';
 
 const COMMANDS = {
   'new': 'Create a new Zyte SSR project',
@@ -90,7 +89,7 @@ async function createNewProject(projectName?: string) {
         "start": "bun dist/server.js"
       },
       dependencies: {
-        "zyte-ssr": "latest"
+        "zyte": "latest"
       }
     };
 
@@ -120,7 +119,7 @@ async function createNewProject(projectName?: string) {
     );
 
     // Create src/index.ts
-    const indexTs = `import { createSSR } from 'zyte-ssr';
+    const indexTs = `import { createSSR } from 'zyte';
 
 const ssr = createSSR();
 
@@ -491,7 +490,7 @@ async function startDevServer() {
       }
     })();
     // Directly import and call startServer from the framework
-    const { startServer } = await import('zyte-ssr/server');
+    const { startServer } = await import('zyte/server');
     startServer();
   } catch (error) {
     console.error('Failed to start development server:', error);
@@ -599,7 +598,7 @@ async function buildProject() {
     await bundleClientFiles();
     // Create a minimal server entry point for the example project
     const serverEntry =
-      "import { startServer } from 'zyte-ssr/server';\n" +
+      "import { startServer } from 'zyte/server';\n" +
       "await startServer();\n";
     await writeFile(join(distDir, 'server.js'), serverEntry);
     const routesDir = join(process.cwd(), 'routes');

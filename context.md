@@ -7,7 +7,7 @@ Zyte SSR is a zero-dependency, TypeScript-first server-side rendering (SSR) fram
 
 ## Project Structure
 ```
-zyte-ssr/
+zyte/
   src/
     cli.ts         # Main CLI entrypoint: all build/dev logic, CLI commands, and scaffolding
     index.ts       # SSR core: route discovery, rendering, template and asset injection

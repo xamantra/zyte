@@ -1,5 +1,5 @@
 {
-  "name": "zyte-ssr",
+  "name": "zyte",
   "version": "0.1.0",
   "description": "Zero-dependency TypeScript-first SSR framework for Bun",
   "main": "dist/index.js",
@@ -48,7 +48,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xamantra/zyte-ssr.git"
+    "url": "git+https://github.com/xamantra/zyte.git"
   },
   "devDependencies": {
     "@types/bun": "^1.0.0",
