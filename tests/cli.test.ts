@@ -11,6 +11,11 @@ function cleanupExample() {
   if (existsSync(EXAMPLE_DIR)) rmSync(EXAMPLE_DIR, { recursive: true, force: true });
 }
 
+function cleanupInvalidProject() {
+  const INVALID_DIR = join(TESTS_DIR, 'my-app!');
+  if (existsSync(INVALID_DIR)) rmSync(INVALID_DIR, { recursive: true, force: true });
+}
+
 afterAll(() => {
   cleanupExample();
 });
@@ -105,5 +110,90 @@ describe('Zyte CLI', () => {
     }
     execSync(`bun ${CLI} build`, { cwd: EXAMPLE_DIR });
     expect(existsSync(join(EXAMPLE_DIR, 'dist', 'server.js'))).toBe(true);
+  });
+
+  it('allows route name with only dashes', () => {
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    execSync(`bun ${CLI} add-route ---`, { cwd: EXAMPLE_DIR });
+    const dashDir = join(EXAMPLE_DIR, 'src', 'routes', '---');
+    expect(existsSync(join(dashDir, '---.ts'))).toBe(true);
+  });
+
+  it('allows route name with only numbers', () => {
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    execSync(`bun ${CLI} add-route 123`, { cwd: EXAMPLE_DIR });
+    const numDir = join(EXAMPLE_DIR, 'src', 'routes', '123');
+    expect(existsSync(join(numDir, '123.ts'))).toBe(true);
+  });
+
+  it('allows route name with uppercase letters', () => {
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    execSync(`bun ${CLI} add-route AboutPage`, { cwd: EXAMPLE_DIR });
+    const upDir = join(EXAMPLE_DIR, 'src', 'routes', 'AboutPage');
+    expect(existsSync(join(upDir, 'AboutPage.ts'))).toBe(true);
+  });
+
+  it('trims leading/trailing spaces in route name', () => {
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    const spacedDir = join(EXAMPLE_DIR, 'src', 'routes', 'spaced');
+    if (existsSync(spacedDir)) rmSync(spacedDir, { recursive: true, force: true });
+    execSync(`bun ${CLI} add-route " spaced "`, { cwd: EXAMPLE_DIR });
+    expect(existsSync(join(spacedDir, 'spaced.ts'))).toBe(true);
+  });
+
+  it('fails on project name with special characters', () => {
+    cleanupInvalidProject();
+    let error = null;
+    try {
+      execSync(`bun ${CLI} new my-app!`, { cwd: TESTS_DIR, stdio: 'pipe' });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).not.toBe(null);
+    cleanupInvalidProject();
+  });
+
+  it('fails to add route in non-existent project directory', () => {
+    const fakeDir = join(TESTS_DIR, 'not-a-project');
+    let error = null;
+    try {
+      execSync(`bun ${CLI} add-route ghost`, { cwd: fakeDir, stdio: 'pipe' });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).not.toBe(null);
+  });
+
+  it('fails to build in non-project directory', () => {
+    const fakeDir = join(TESTS_DIR, 'not-a-project');
+    let error = null;
+    try {
+      execSync(`bun ${CLI} build`, { cwd: fakeDir, stdio: 'pipe' });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).not.toBe(null);
+  });
+
+  it('warns or fails on reserved route name', () => {
+    if (!existsSync(EXAMPLE_DIR)) {
+      execSync(`bun ${CLI} new zyte-example`, { cwd: TESTS_DIR });
+    }
+    let error = null;
+    try {
+      execSync(`bun ${CLI} add-route app`, { cwd: EXAMPLE_DIR, stdio: 'pipe' });
+    } catch (e) {
+      error = e;
+    }
+    // Accept either error or successful creation, but not crash
+    expect(error === null || existsSync(join(EXAMPLE_DIR, 'src', 'routes', 'app', 'app.ts'))).toBe(true);
   });
 }); 

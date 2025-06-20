@@ -59,6 +59,12 @@ async function createNewProject(projectName?: string) {
     process.exit(1);
   }
 
+  projectName = projectName.replace(/^['"]|['"]$/g, '').trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(projectName)) {
+    console.error('Invalid project name. Only letters, numbers, dashes, and underscores are allowed.');
+    process.exit(1);
+  }
+
   const projectDir = join(process.cwd(), projectName);
   
   if (existsSync(projectDir)) {
