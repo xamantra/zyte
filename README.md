@@ -280,6 +280,42 @@ export async function loadUserInfo(userId: string) {
 > Note: This package is using an Http server from Bun that is not compatible with Node.js.
 
 > This project is entirely vibe-coded with Cursor. Use at your own risk. (made for fun)
+
+---
+
+## Deployment
+
+Zyte SSR apps can be deployed to any platform that supports Bun. Here are the recommended deployment configurations:
+
+### Render.com
+
+1. **Build Command:** `bun install && bun run build`
+2. **Start Command:** `bun run dist/server.js`
+
+### Vercel
+
+1. **Build Command:** `bun install && bun run build`
+2. **Output Directory:** `dist`
+3. **Install Command:** `bun install`
+
+### Railway
+
+1. **Build Command:** `bun install && bun run build`
+2. **Start Command:** `bun run dist/server.js`
+
+### Environment Variables
+
+Set `PORT` environment variable if needed (defaults to 3000).
+
+### Troubleshooting
+
+If you encounter esbuild bundling errors during deployment, this has been fixed in the framework. The solution includes:
+- Framework-level external configuration for esbuild
+- Conditional import handling
+- Graceful fallback when esbuild is unavailable
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ---
 
 ## Documentation & Support

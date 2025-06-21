@@ -1,3 +1,6 @@
 [test]
 coverageReporter  = ["text", "lcov"]  # default ["text"]
 coverageDir = ".coverage"  # default "coverage"
+
+[build]
+external = ["esbuild"]

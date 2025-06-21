@@ -1,6 +1,6 @@
 {
   "name": "zyte",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Zero-dependency TypeScript-first SSR framework for Bun",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,7 +24,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build:framework": "bun build src/*.ts --outdir dist --target bun",
+    "build:framework": "bun build src/*.ts --outdir dist --target bun --external esbuild",
     "build:types": "tsc --emitDeclarationOnly",
     "build:all": "bun run build:framework && bun run build:types",
     "build:project": "bun run src/build.ts",

@@ -3,7 +3,16 @@
 import { mkdir, writeFile, copyFile, readdir, stat, watch } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { build as esbuildBuild } from 'esbuild';
+
+// Conditional import of esbuild to avoid bundling issues
+let esbuildBuild: any;
+try {
+  const esbuild = await import('esbuild');
+  esbuildBuild = esbuild.build;
+} catch (error) {
+  console.warn('esbuild not available for client bundling');
+  esbuildBuild = null;
+}
 
 const COMMANDS = {
   'new': 'Create a new Zyte SSR project',
@@ -1041,6 +1050,12 @@ async function findClientFiles(dir: string): Promise<string[]> {
 }
 
 async function bundleClientFiles() {
+  if (!esbuildBuild) {
+    console.warn('⚠️  esbuild not available - skipping client bundle generation');
+    console.warn('   Client-side interactivity may not work in production');
+    return;
+  }
+  
   const clientFiles = await findClientFiles(join(process.cwd(), 'src'));
   const outDir = join(process.cwd(), 'dist', 'client');
   if (!existsSync(outDir)) {
@@ -1063,6 +1078,11 @@ async function bundleClientFiles() {
 }
 
 async function bundleSingleClientFile(file: string) {
+  if (!esbuildBuild) {
+    console.warn('⚠️  esbuild not available - skipping client bundle generation');
+    return;
+  }
+  
   const outDir = join(process.cwd(), 'dist', 'client');
   if (!existsSync(outDir)) {
     await mkdir(outDir, { recursive: true });
