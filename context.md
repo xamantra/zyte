@@ -51,10 +51,79 @@ export async function aboutPage() {
 
 ## Key Conventions
 - **SSR components:** `.ts` files (not ending with `.client.ts`) in `src/app` or `src/routes/*` are treated as server-side entry points. These can be synchronous or `async` functions (returning `Promise<string>`), so you can fetch data or perform async operations during SSR.
+- **Multiple exports:** Components can export multiple functions and properties that can be used in templates. Each export is available in the template via `{{ functionName() }}` or `{{ propertyName }}`.
 - **Client code:** `.client.ts` files colocated with SSR components. These are bundled with esbuild and injected automatically into the HTML.
 - **HTML templates:** `.html` files matching the SSR component name are used for rendering.
 - **CSS:** `.css` files matching the component or route are automatically injected as `<link rel="stylesheet">` during SSR (no need to manually add in templates).
 - **Static assets:** Served from `dist/client`, `src/app`, or `src/routes` in that order of precedence.
+
+---
+
+## Template Processing & Multiple Exports
+
+The framework now supports multiple exports and enhanced template expressions:
+
+### Supported Template Expressions
+- **Function calls:** `{{ functionName() }}`, `{{ functionName('arg') }}`, `{{ functionName(arg1, arg2) }}`
+- **Property access:** `{{ propertyName }}`, `{{ data.title }}`
+- **Async functions:** All function calls are awaited, supporting `async`/`await` in SSR components
+
+### Example: Multiple Exports
+```ts
+// src/routes/about/about.ts
+export function aboutPage() {
+  return `<div>About page content</div>`;
+}
+
+export function header() {
+  return `<header>Navigation</header>`;
+}
+
+export function sidebar() {
+  return `<aside>Sidebar content</aside>`;
+}
+
+export function getTitle() {
+  return "About Us";
+}
+
+export const pageData = {
+  author: "John Doe",
+  date: "2024-01-01"
+};
+
+export async function loadUserInfo(userId: string) {
+  const user = await fetchUser(userId);
+  return `<div>User: ${user.name}</div>`;
+}
+```
+
+```html
+<!-- src/routes/about/about.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ header() }}
+  
+  <main>
+    {{ aboutPage() }}
+    <p>By {{ pageData.author }} on {{ pageData.date }}</p>
+    {{ loadUserInfo('123') }}
+  </main>
+  
+  {{ sidebar() }}
+</body>
+</html>
+```
+
+### Argument Types Supported
+- **Strings:** `{{ functionName('hello') }}`, `{{ functionName("world") }}`
+- **Numbers:** `{{ functionName(42) }}`, `{{ functionName(3.14) }}`
+- **Booleans:** `{{ functionName(true) }}`, `{{ functionName(false) }}`
+- **Null/Undefined:** `{{ functionName(null) }}`, `{{ functionName(undefined) }}`
 
 ---
 
@@ -73,7 +142,9 @@ export async function aboutPage() {
    - `src/index.ts` scans `src/routes` for `.ts`/`.js` files, ignoring `.client.ts`.
    - Each route is mapped to its SSR component, HTML template, and CSS file (if present).
 2. **Rendering:**
-   - On request, SSR loads the component, processes the template, and injects the result.
+   - On request, SSR loads the component module, making all exports available to the template.
+   - The template processor supports multiple function calls and property access: `{{ functionName() }}`, `{{ propertyName }}`, `{{ data.title }}`.
+   - All function calls are awaited, supporting async SSR components.
    - If a bundled client script exists for the route, injects `<script src="...">` before `</body>`.
    - If a matching CSS file exists, injects `<link rel="stylesheet">` in the `<head>`.
 3. **Client Bundling:**
@@ -83,7 +154,7 @@ export async function aboutPage() {
    - Server checks `dist/client` first, then `src/app`, then `src/routes` for static assets.
    - `/routes/...` URLs are mapped to `src/routes/...` for assets like CSS.
 
-* The template processor and SSR rendering fully support async SSR component functions. All `{{ functionName() }}` template calls are awaited, so you can use `async`/`await` in your SSR logic.
+* The template processor and SSR rendering fully support multiple exports and async SSR component functions. All `{{ functionName() }}` template calls are awaited, so you can use `async`/`await` in your SSR logic.
 
 ---
 

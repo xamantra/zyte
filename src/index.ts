@@ -154,37 +154,95 @@ export class ZyteSSR {
   }
 
   private async processTemplate(html: string, component: any, context: SSRContext): Promise<string> {
-    // Async template processing - replace {{ functionName() }} with awaited function calls
-    const regex = /\{\{\s*(\w+\([^)]*\))\s*\}\}/g;
+    // Enhanced template processing - support multiple exports and more flexible expressions
+    // Supports: {{ functionName() }}, {{ functionName('arg') }}, {{ functionName(arg1, arg2) }}
+    const regex = /\{\{\s*([^}]+)\s*\}\}/g;
     let result = '';
     let lastIndex = 0;
     let match: RegExpExecArray | null;
+    
     while ((match = regex.exec(html)) !== null) {
       result += html.slice(lastIndex, match.index);
-      const functionCall = match[1];
+      const expression = match[1].trim();
+      
       try {
-        const funcMatch = functionCall.match(/(\w+)\(([^)]*)\)/);
-        if (!funcMatch) {
-          result += match[0];
-        } else {
+        // Handle function calls with or without arguments
+        const funcMatch = expression.match(/^(\w+)\s*\(([^)]*)\)$/);
+        if (funcMatch) {
           const [, funcName, argsStr] = funcMatch;
           const func = component[funcName];
+          
           if (typeof func === 'function') {
-            const args = argsStr ? argsStr.split(',').map((arg: string) => arg.trim().replace(/['"]/g, '')) : [];
+            // Parse arguments - support strings, numbers, and simple expressions
+            const args = argsStr ? this.parseTemplateArgs(argsStr) : [];
             const value = await func(...args);
             result += value;
           } else {
+            console.warn(`Function ${funcName} not found in component`);
             result += match[0];
           }
+        } else {
+          // Handle simple property access or expressions
+          const value = this.evaluateExpression(expression, component);
+          result += value;
         }
       } catch (error) {
-        console.error(`Error processing template function ${functionCall}:`, error);
+        console.error(`Error processing template expression ${expression}:`, error);
         result += match[0];
       }
       lastIndex = regex.lastIndex;
     }
     result += html.slice(lastIndex);
     return result;
+  }
+
+  private parseTemplateArgs(argsStr: string): any[] {
+    if (!argsStr.trim()) return [];
+    
+    return argsStr.split(',').map(arg => {
+      arg = arg.trim();
+      
+      // Handle string literals
+      if ((arg.startsWith('"') && arg.endsWith('"')) || 
+          (arg.startsWith("'") && arg.endsWith("'"))) {
+        return arg.slice(1, -1);
+      }
+      
+      // Handle numbers
+      if (!isNaN(Number(arg))) {
+        return Number(arg);
+      }
+      
+      // Handle booleans
+      if (arg === 'true') return true;
+      if (arg === 'false') return false;
+      
+      // Handle null/undefined
+      if (arg === 'null') return null;
+      if (arg === 'undefined') return undefined;
+      
+      // Return as string if no other type matches
+      return arg;
+    });
+  }
+
+  private evaluateExpression(expression: string, component: any): any {
+    // Handle simple property access
+    if (component[expression] !== undefined) {
+      return component[expression];
+    }
+    
+    // Handle nested property access (e.g., data.title)
+    const parts = expression.split('.');
+    let value = component;
+    for (const part of parts) {
+      if (value && typeof value === 'object' && value[part] !== undefined) {
+        value = value[part];
+      } else {
+        return expression; // Return original expression if not found
+      }
+    }
+    return value;
   }
 
   private addInteractivityScript(html: string, route: RouteConfig): string {
