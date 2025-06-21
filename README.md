@@ -436,7 +436,121 @@ export async function loadUserInfo(userId: string) {
 
 > Note: This package is using an Http server from Bun that is not compatible with Node.js.
 
-> This project is entirely vibe-coded with Cursor. Use at your own risk. (made for fun)
+---
+
+## Server Configuration
+
+Zyte SSR provides a simple way to configure your server through a `server.config.ts` file. You can place this file in your project root or inside the `src` directory. The framework will automatically load it when the server starts.
+
+### Basic Configuration
+
+Create a `server.config.ts` file in your project root or `src/` directory:
+
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  // Custom port (optional)
+  port: 3000,
+  
+  // Callback when server starts (optional)
+  onStart: async ({ port, host, url }) => {
+    console.log(`🎉 Server is ready at ${url}`);
+    console.log(`📊 Keep-alive endpoint: ${url}/__zyte_keepalive`);
+    
+    // You can perform any custom initialization here
+    // For example:
+    // - Connect to databases
+    // - Initialize external services
+    // - Set up background tasks
+    // - Send notifications
+  }
+};
+
+export default config;
+```
+
+### Keep-Alive Endpoint
+
+Every Zyte SSR server automatically includes a keep-alive endpoint at `/__zyte_keepalive` that returns:
+
+```json
+{
+  "status": "alive",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "framework": "zyte",
+  "version": "0.3.8"
+}
+```
+
+This endpoint is useful for:
+- **Free cloud services** that require periodic pings to keep the server alive
+- **Health checks** and monitoring
+- **Load balancers** that need to verify server status
+
+### Advanced Configuration Examples
+
+#### Database Connection
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  onStart: async ({ url }) => {
+    console.log(`🚀 Server started at ${url}`);
+    
+    // Connect to database
+    try {
+      await connectToDatabase();
+      console.log('✅ Database connected');
+    } catch (error) {
+      console.error('❌ Database connection failed:', error);
+    }
+  }
+};
+
+export default config;
+```
+
+#### External Service Integration
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  onStart: async ({ url }) => {
+    console.log(`🚀 Server started at ${url}`);
+    
+    // Initialize external services
+    await initializeEmailService();
+    await setupWebhookEndpoints();
+    await startBackgroundTasks();
+    
+    console.log('✅ All services initialized');
+  }
+};
+
+export default config;
+```
+
+#### Environment-Specific Configuration
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  port: process.env.NODE_ENV === 'production' ? 8080 : 3000,
+  
+  onStart: async ({ url }) => {
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`🚀 Production server running at ${url}`);
+      // Production-specific initialization
+    } else {
+      console.log(`🚀 Development server running at ${url}`);
+      // Development-specific initialization
+    }
+  }
+};
+
+export default config;
+```
 
 ---
 

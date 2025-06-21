@@ -2,13 +2,62 @@ import { createSSR, SSRContext } from './index';
 import { extname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 
-export async function startServer(options: { port?: number } = {}) {
+export interface ServerOptions {
+  port?: number;
+  onStart?: (server: { port: number; host: string; url: string }) => void | Promise<void>;
+}
+
+export async function startServer(options: ServerOptions = {}) {
+  // Try to load server configuration from project root or src directory
+  let projectConfig: ServerOptions = {};
+  const rootConfigPath = join(process.cwd(), 'server.config.ts');
+  const srcConfigPath = join(process.cwd(), 'src', 'server.config.ts');
+  
+  let configPath: string | null = null;
+  if (existsSync(rootConfigPath)) {
+    configPath = rootConfigPath;
+  } else if (existsSync(srcConfigPath)) {
+    configPath = srcConfigPath;
+  }
+
+  if (configPath) {
+    try {
+      const configModule = await import(configPath);
+      projectConfig = configModule.default || configModule;
+    } catch (error) {
+      console.warn(`Failed to load server config from ${configPath}:`, error);
+    }
+  }
+
+  // Merge project config with passed options (passed options take precedence)
+  const finalOptions: ServerOptions = {
+    ...projectConfig,
+    ...options
+  };
+
   const ssr = createSSR({ baseDir: process.cwd() });
-  const port = options.port ?? (process.env.PORT ? parseInt(process.env.PORT) : 3000);
+  const port = finalOptions.port ?? (process.env.PORT ? parseInt(process.env.PORT) : 3000);
 
   async function handler(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // Magic keep-alive route for free cloud services
+    if (path === '/__zyte_keepalive' || path === '/__zyte_keepalive/') {
+      return new Response(JSON.stringify({
+        status: 'alive',
+        timestamp: new Date().toISOString(),
+        framework: 'zyte',
+        version: process.env.npm_package_version
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
 
     // Serve static files from dist/client, src/app, and src/routes
     if (/\.(css|js|png|jpg|jpeg|gif|svg)$/.test(path)) {
@@ -117,5 +166,17 @@ export async function startServer(options: { port?: number } = {}) {
     }
   });
   const host = server.hostname || '0.0.0.0';
-  console.log(`🚀 Zyte SSR server running on Bun at http://${host}:${port}`);
+  const url = `http://${host}:${port}`;
+  
+  // Call the onStart callback if provided
+  if (finalOptions.onStart) {
+    try {
+      await finalOptions.onStart({ port, host, url });
+    } catch (error) {
+      console.error('Error in onStart callback:', error);
+    }
+  } else {
+    // Default server start message if no onStart is configured
+    console.log(`🚀 Zyte SSR server running on Bun at ${url}`);
+  }
 } 

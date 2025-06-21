@@ -1,280 +1,230 @@
-# Zyte SSR Framework — AI/Developer Context
+# Zyte SSR Framework — AI & LLM Technical Context
 
-## Overview
-Zyte SSR is a zero-dependency, TypeScript-first server-side rendering (SSR) framework for Bun. It is designed for simplicity, fast builds, and a clear separation between server-rendered and client-side code. The framework is CLI-driven and supports per-component client-side TypeScript with automatic bundling and script injection.
+## 1. Overview
+
+Zyte SSR is a zero-dependency, TypeScript-first server-side rendering (SSR) framework designed for the [Bun](https://bun.sh/) runtime. It is architected for simplicity, rapid development, and a convention-driven project structure. The framework's core features include file-based routing, automatic client-side code bundling, and a template engine that allows for seamless integration of asynchronous data fetching directly within HTML templates.
+
+This document serves as a comprehensive technical specification intended for consumption by AI and LLM-based development assistants. It details the internal architecture, control flow, and API for the purpose of understanding, maintaining, and extending the framework.
 
 ---
 
-## Project Structure
+## 2. Core Architectural Concepts
+
+### File-Based Routing
+Routes are programmatically discovered by scanning the `src/routes` directory. The framework maps the file system structure directly to URL paths. A component defined at `src/routes/about/about.ts` corresponds to the `/about` URL. The root route `/` is a special case, mapped to `src/app/app.ts`. This logic is implemented in the `discoverRoutes` method of the `ZyteSSR` class in `src/index.ts`.
+
+### SSR Components
+A component is a TypeScript module (`.ts` or `.js`) that exports functions or variables. These exports are consumed by the template engine to render dynamic HTML.
+
+### Multiple Exports per Component
+A single module can export multiple named entities (functions, variables, constants). This allows for co-location of related server-side logic. For example, a `profile.ts` module might export `getProfileData`, `renderProfileHeader`, and `pageTitle`, all usable within the associated `profile.html` template.
+
+### Asynchronous Rendering
+The template engine is intrinsically asynchronous. Any function call within a template expression (e.g., `{{ myFunction() }}`) is automatically `await`ed by the `evaluateExpression` function in `src/index.ts`. This enables direct-to-template data fetching or other async operations during the render cycle without manual promise handling.
+
+### Client-Side Hydration
+Interactivity is achieved by creating a `.client.ts` file alongside its corresponding server-side component (e.g., `about.client.ts` for `about.ts`). During the build process (`buildProject` in `src/cli.ts`), these `.client.ts` files are discovered and bundled using `esbuild` into the `dist/client/` directory. The `startServer` function in `src/server.ts` then dynamically injects the appropriate client script as a `<script>` tag into the final HTML document before serving the response.
+
+### Automated Asset Injection
+- **CSS**: A `.css` file with the same basename as a component (e.g., `about.css` for `about.ts`) is automatically discovered by the `render` method in `src/index.ts`. If found, a `<link rel="stylesheet">` tag pointing to the corresponding asset path is injected into the HTML `<head>`.
+- **Client Scripts**: Bundled `.client.js` files are injected as `<script type="module">` tags just before the closing `</body>` tag by the request handler in `src/server.ts`.
+
+---
+
+## 3. Project Structure
+
+### Framework Internal Structure
 ```
 zyte/
-  src/
-    cli.ts         # Main CLI entrypoint: all build/dev logic, CLI commands, and scaffolding
-    index.ts       # SSR core: route discovery, rendering, template and asset injection
-    server.ts      # Bun HTTP server: SSR handler, static file serving, asset resolution
-  bin/zyte         # CLI executable (entry point for all commands)
-  package.json     # CLI and framework package metadata
-  ...
+├── bin/
+│   ├── zyte          # Shell script executable for POSIX systems
+│   ├── zyte.cmd      # Batch script for Windows CMD
+│   └── zyte.ps1      # PowerShell script for Windows
+├── src/
+│   ├── cli.ts        # Main CLI entrypoint: orchestrates build, dev, and scaffolding logic
+│   ├── index.ts      # SSR core: route discovery, template engine, rendering logic
+│   └── server.ts     # Bun HTTP server: request handling, static file serving, asset injection
+└── package.json      # Defines CLI commands, dependencies, and project metadata
 ```
 
-### Example Generated Project
+### Generated Project Structure (via `zyte new`)
 ```
-zyte-example/
-  src/
-    app/
-      app.ts           # Main SSR component
-      app.html         # HTML template for SSR
-      app.css          # CSS for SSR and client
-      app.client.ts    # Client-side logic (hydration, interactivity)
-    routes/
-      counter/
-        counter.ts         # SSR component for /counter
-        counter.html       # HTML template for /counter
-        counter.css        # CSS for /counter
-        counter.client.ts  # Client-side logic for /counter
-    index.ts           # Project entry (optional)
-  dist/
-    client/
-      ...bundled client JS...
-```
-
-### Example: Async SSR Component
-```ts
-// src/routes/about/about.ts
-export async function aboutPage() {
-  const data = await fetchSomeData();
-  return `<div>Data: ${data}</div>`;
-}
+<project-name>/
+├── src/
+│   ├── app/                    # Root route (/) component files
+│   │   ├── app.ts              # Main SSR component for the root route
+│   │   ├── app.html            # HTML template for the root route
+│   │   ├── app.css             # Styles for the root route
+│   │   └── app.client.ts       # Client-side interactivity for the root route
+│   │
+│   ├── routes/                 # All other routes
+│   │   └── counter/
+│   │       ├── counter.ts
+│   │       ├── counter.html
+│   │       ├── counter.css
+│   │       └── counter.client.ts
+│   │
+│   ├── index.ts                # User-facing SSR entrypoint (not part of the framework's src)
+│   └── server.config.ts        # Optional server configuration
+│
+├── dist/                     # Build output (auto-generated)
+│   ├── client/                 # Bundled client-side scripts
+│   └── server.js               # Production server entrypoint
+│
+├── package.json
+└── tsconfig.json
 ```
 
 ---
 
-## Key Conventions
-- **SSR components:** `.ts` files (not ending with `.client.ts`) in `src/app` or `src/routes/*` are treated as server-side entry points. These can be synchronous or `async` functions (returning `Promise<string>`), so you can fetch data or perform async operations during SSR.
-- **Multiple exports:** Components can export multiple functions and properties that can be used in templates. Each export is available in the template via `{{ functionName() }}` or `{{ propertyName }}`.
-- **Client code:** `.client.ts` files colocated with SSR components. These are bundled with esbuild and injected automatically into the HTML.
-- **HTML templates:** `.html` files matching the SSR component name are used for rendering.
-- **CSS:** `.css` files matching the component or route are automatically injected as `<link rel="stylesheet">` during SSR (no need to manually add in templates).
-- **Static assets:** Served from `dist/client`, `src/app`, or `src/routes` in that order of precedence.
+## 4. CLI Commands (Technical Breakdown)
+
+All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts. The `main` function in `src/cli.ts` parses `process.argv` to route to the appropriate command handler.
+
+### `zyte new <project-name>`
+- **Handler:** `createNewProject(projectName)`
+- **Action:** Scaffolds a new Zyte SSR project.
+- **Mechanism:**
+    1. Creates a new directory named `<project-name>`.
+    2. Writes a series of files using hardcoded string templates within the `createNewProject` function. This includes:
+        - `package.json` with `dev`, `build`, and `start` scripts pointing to the framework's commands.
+        - `tsconfig.json` with appropriate paths and compiler options.
+        - `src/index.ts` (the user-space entrypoint).
+        - `src/server.config.ts` (optional configuration).
+        - A complete root component under `src/app/` (`app.ts`, `app.html`, `app.css`, `app.client.ts`).
+        - An example `/counter` route under `src/routes/counter/`.
+
+### `zyte add-route <route-name>`
+- **Handler:** `addRoute(routeName)`
+- **Action:** Scaffolds a new route within `src/routes`.
+- **Mechanism:**
+    1. Creates a new subdirectory `src/routes/<route-name>`.
+    2. Populates the directory with four files using hardcoded string templates: `<route-name>.ts`, `<route-name>.html`, `<route-name>.css`, and `<route-name>.client.ts`.
+
+### `zyte dev`
+- **Handler:** `startDevServer()`
+- **Action:** Starts the development server with live-reloading capabilities.
+- **Mechanism:**
+    1. Executes an initial full project build by calling `buildProject()`.
+    2. Spawns the Bun web server (`src/server.ts`) as a child process.
+    3. Initializes `fs.watch` on the `src/` directory (recursively).
+    4. On any file change, it triggers a rebuild by calling `buildProject()`. The server process is *not* restarted.
+    5. Code changes are reflected on the next request due to cache-busting query parameters (`?t=${Date.now()}`) appended to dynamic `import()` calls in `src/index.ts`.
+
+### `zyte build`
+- **Handler:** `buildProject()`
+- **Action:** Builds the project for production.
+- **Mechanism:**
+    1. Cleans the `dist/` directory.
+    2. Creates `dist/client`.
+    3. Calls `bundleClientFiles()` to find all `.client.ts` files and uses a conditional, dynamically imported `esbuild` instance to compile and bundle them into `dist/client/`.
+    4. Copies server-side files (`index.ts`, `server.ts` etc.) to `dist/`, effectively creating a self-contained production-ready application.
 
 ---
 
-## Template Processing & Multiple Exports
+## 5. Technical Deep Dive: File-by-File
 
-The framework now supports multiple exports and enhanced template expressions:
+#### `bin/zyte`, `bin/zyte.cmd`, `bin/zyte.ps1`
+- **Purpose:** Cross-platform CLI entrypoints.
+- **Mechanism:** These are simple wrapper scripts that execute `bun run src/cli.ts` with all forwarded arguments. The `package.json` `"bin"` field maps the `zyte` command to these scripts.
 
-### Supported Template Expressions
-- **Function calls:** `{{ functionName() }}`, `{{ functionName('arg') }}`, `{{ functionName(arg1, arg2) }}`
-- **Property access:** `{{ propertyName }}`, `{{ data.title }}`
-- **Query parameters:** `{{ query.paramName }}`, `{{ query.search || 'default' }}`
-- **Route parameters:** `{{ params.paramName }}`
-- **Headers:** `{{ headers.headerName }}`
-- **Async functions:** All function calls are awaited, supporting `async`/`await` in SSR components
+#### `src/cli.ts`
+- **Purpose:** The central orchestrator for all build, development, and scaffolding tasks.
+- **Key Internals:**
+    - `main()`: Entry function that reads `process.argv.slice(2)` and uses a `switch` statement to delegate to the appropriate command function.
+    - `createNewProject(projectName)` / `addRoute(routeName)`: Contain hardcoded string literals for every file that is scaffolded. They perform synchronous file system operations (`fs.mkdirSync`, `fs.writeFileSync`).
+    - `startDevServer()`: Manages the development workflow, combining an initial build, server process management (`Bun.spawn`), and file watching (`fs.watch`).
+    - `buildProject()`: A procedural function that orchestrates the cleaning of `dist`, bundling of client assets, and copying of server assets.
+    - `bundleClientFiles()`: Scans the project for `.client.ts` files, invokes `esbuild.build()` for each, and places the output in `dist/client/`. It includes a `try-catch` block to handle cases where `esbuild` might not be available, allowing the build to proceed without client-side scripts.
 
-### Example: Multiple Exports
-```ts
-// src/routes/about/about.ts
-export function aboutPage() {
-  return `<div>About page content</div>`;
-}
+#### `src/server.ts`
+- **Purpose:** Defines the Bun web server and handles all incoming HTTP requests.
+- **Key Internals:**
+    - `startServer(options)`: The main export. It initializes the `ZyteSSR` engine from `src/index.ts`, loads an optional `server.config.ts`, and starts the Bun HTTP server (`Bun.serve`).
+    - **Configuration Loading:** It attempts to `import()` `process.cwd() + '/server.config.ts'` or `process.cwd() + '/src/server.config.ts'` to get user-defined options like `port` or an `onStart` callback.
+    - **Request Handler (`fetch` method of `Bun.serve`):** This is the core request-response pipeline.
+        1. **Keep-Alive:** Responds to `/__zyte_keepalive` with a JSON status object.
+        2. **Static Assets:** If the request URL path matches a static file extension (e.g., `.css`, `.js`, `.png`), it attempts to serve a physical file from `dist/client/` or `src/`.
+        3. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
+    - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it checks if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
 
-export function header() {
-  return `<header>Navigation</header>`;
-}
-
-export function sidebar() {
-  return `<aside>Sidebar content</aside>`;
-}
-
-export function getTitle() {
-  return "About Us";
-}
-
-export const pageData = {
-  author: "John Doe",
-  date: "2024-01-01"
-};
-
-export async function loadUserInfo(userId: string) {
-  const user = await fetchUser(userId);
-  return `<div>User: ${user.name}</div>`;
-}
-```
-
-```html
-<!-- src/routes/about/about.html -->
-<!DOCTYPE html>
-<html>
-<head>
-  <title>{{ getTitle() }}</title>
-</head>
-<body>
-  {{ header() }}
-  
-  <main>
-    {{ aboutPage() }}
-    <p>By {{ pageData.author }} on {{ pageData.date }}</p>
-    {{ loadUserInfo('123') }}
-  </main>
-  
-  {{ sidebar() }}
-</body>
-</html>
-```
-
-### Example: Multiple Exports with Query Parameters
-```ts
-// src/routes/search/search.ts
-export function searchPage(context?: any) {
-  const query = context?.query || {};
-  const q = query.q || '';
-  const page = query.page || '1';
-  
-  return `
-  <div class="search-results">
-    <h1>Search Results</h1>
-    <p>Query: ${q}</p>
-    <p>Page: ${page}</p>
-  </div>
-  `;
-}
-
-export function header(context?: any) {
-  const query = context?.query || {};
-  const theme = query.theme || 'light';
-  
-  return `
-  <header class="header ${theme}-theme">
-    <nav>Navigation</nav>
-  </header>
-  `;
-}
-
-export function getTitle(context?: any) {
-  const query = context?.query || {};
-  const q = query.q || 'Search';
-  return `Search: ${q}`;
-}
-
-export const pageData = {
-  author: "John Doe",
-  date: "2024-01-01"
-};
-```
-
-```html
-<!-- src/routes/search/search.html -->
-<!DOCTYPE html>
-<html>
-<head>
-  <title>{{ getTitle() }}</title>
-</head>
-<body>
-  {{ header() }}
-  
-  <main>
-    {{ searchPage() }}
-    <p>By {{ pageData.author }} on {{ pageData.date }}</p>
-    
-    <!-- Direct query parameter access -->
-    <div class="query-info">
-      <p>Search: {{ query.q || 'None' }}</p>
-      <p>Page: {{ query.page || '1' }}</p>
-      <p>Theme: {{ query.theme || 'light' }}</p>
-    </div>
-  </main>
-</body>
-</html>
-```
-
-### Argument Types Supported
-- **Strings:** `{{ functionName('hello') }}`, `{{ functionName("world") }}`
-- **Numbers:** `{{ functionName(42) }}`, `{{ functionName(3.14) }}`
-- **Booleans:** `{{ functionName(true) }}`, `{{ functionName(false) }}`
-- **Null/Undefined:** `{{ functionName(null) }}`, `{{ functionName(undefined) }}`
-- **Query parameters:** `{{ functionName(query.search) }}`, `{{ functionName(query.page) }}`
-- **Context access:** Functions receive the full context object as the last parameter
+#### `src/index.ts`
+- **Purpose:** The core SSR engine, responsible for route discovery, template processing, and rendering.
+- **`ZyteSSR` Class:**
+    - `constructor()`: Initializes the route map by calling `discoverRoutes()`.
+    - `discoverRoutes()`: Populates a `Map<string, string>` where keys are URL paths (`/about`) and values are the absolute paths to the corresponding component module (`.../src/routes/about/about.ts`). It uses the recursive helper `scanRoutesDirectory`.
+    - `render(path, context)`: The primary method for rendering a page.
+        1. Looks up the component module path from the route map. The root `/` is a special case mapped to `src/app/app.ts`.
+        2. Reads the sibling `.html` template file into a string.
+        3. **CSS Injection:** Checks for a sibling `.css` file. If it exists, a `<link rel="stylesheet" href="...">` tag is prepended into the `<head>` of the HTML string.
+        4. Dynamically imports the component module using `import()`. Crucially, it appends a `?t=${Date.now()}` query string in development mode to bypass Bun's module cache.
+        5. Calls `processTemplate()` with the HTML, the imported module's exports, and the request context.
+    - `processTemplate(html, component, context)`: The template engine implementation. It uses `String.prototype.replace()` with a global regex (`/\{\{\s*([^}]+)\s*\}\}/g`) to find all `{{...}}` expressions and passes each match to `evaluateExpression`.
+    - `evaluateExpression(match, component, context)`: The heart of the template engine.
+        - It parses the expression to determine if it's a function call (contains `(`) or a property access.
+        - **Function Calls:** It extracts the function name and arguments. Arguments are parsed by `parseTemplateArgs` into their correct types (string, number, boolean, null). It then invokes the function from the `component` object, passing the `context` as the final argument. The result is `await`ed.
+        - **Property/Expression Access:** It supports dot notation (`myObject.property`) and a simple `||` for default values. It attempts to resolve the expression against properties on the `component` object first, then the `context` object (`query`, `params`).
 
 ---
 
-## CLI Commands
-- `zyte new <project-name>` — Scaffold a new project with example app and counter route.
-- `zyte dev` — Build in watch mode (in-process), serve with Bun, auto-rebuild on changes.
-- `zyte build` — Production build (bundles client, copies files, emits server.js).
-- `zyte add-route <name>` — Add a new route scaffold.
+## 6. Template Engine Internals
 
-> **Note:** All build and dev logic is in `src/cli.ts`. Generated projects do not contain their own build scripts.
+The template engine is located in `src/index.ts` within the `processTemplate` and `evaluateExpression` methods.
 
----
-
-## SSR and Client Bundling Flow
-1. **Route Discovery:**
-   - `src/index.ts` scans `src/routes` for `.ts`/`.js` files, ignoring `.client.ts`.
-   - Each route is mapped to its SSR component, HTML template, and CSS file (if present).
-2. **Rendering:**
-   - On request, SSR loads the component module, making all exports available to the template.
-   - The template processor supports multiple function calls and property access: `{{ functionName() }}`, `{{ propertyName }}`, `{{ data.title }}`.
-   - All function calls are awaited, supporting async SSR components.
-   - If a bundled client script exists for the route, injects `<script src="...">` before `</body>`.
-   - If a matching CSS file exists, injects `<link rel="stylesheet">` in the `<head>`.
-3. **Client Bundling:**
-   - All `.client.ts` files are bundled with esbuild to `dist/client/...`.
-   - Watch mode only re-bundles changed `.client.ts` files; other changes trigger a full rebuild.
-4. **Static File Serving:**
-   - Server checks `dist/client` first, then `src/app`, then `src/routes` for static assets.
-   - `/routes/...` URLs are mapped to `src/routes/...` for assets like CSS.
-
-* The template processor and SSR rendering fully support multiple exports and async SSR component functions. All `{{ functionName() }}` template calls are awaited, so you can use `async`/`await` in your SSR logic.
+- **Invocation:** It is triggered by `render` after the component module and HTML template are loaded.
+- **Regex:** ` /\{\{\s*([^}]+)\s*\}\}/g ` captures the content inside `{{ }}`.
+- **Evaluation Strategy (`evaluateExpression`):**
+    1. The captured expression (e.g., `myFunction('arg1', 123)` or `page.title || 'Default'`) is analyzed.
+    2. **If it's a function call:**
+        - The function name and argument string are extracted.
+        - `parseTemplateArgs` is called to convert the argument string into an array of primitive values.
+        - The function is retrieved from the imported component's exports.
+        - It is invoked with `Function.prototype.apply()` with the parsed arguments, plus the `context` object appended as the last argument.
+        - The call is `await`ed, and the resolved value is returned.
+    3. **If it's a property access:**
+        - The expression is split by `||` to handle default values.
+        - It attempts to resolve the property path (e.g., `pageData.author`) against the `component` object and the `context` object.
+        - The first truthy value found is returned.
+- **Context Object:** Every template has access to a `context` object containing:
+    - `context.query`: `URLSearchParams` from the request.
+    - `context.params`: Route parameters (e.g., for `/users/:id`).
+    - `context.headers`: Request headers.
 
 ---
 
-## Design Decisions & Rationale
-- **Zero dependencies except esbuild:** Ensures fast installs and minimal attack surface.
-- **All build/dev logic in CLI:** Keeps generated projects clean and easy to upgrade.
-- **Strict SSR/client code separation:** Prevents SSR errors and enables clear mental model.
-- **Automatic asset injection:** Reduces boilerplate and mistakes in templates.
-- **In-process build watcher:** Fast feedback loop for development.
-- **Route discovery ignores `.client.ts`:** Prevents accidental SSR of client-only code.
+## 7. Framework Maintenance & Extension Guide
+
+This section provides instructions for an AI on how to modify the framework.
+
+- **To Add a CLI Command:**
+    1. In `src/cli.ts`, add the new command string to the `COMMANDS` object.
+    2. Add a `case` to the `switch` statement in the `main()` function.
+    3. Implement a new function (e.g., `myNewCommand()`) to handle the command's logic, including any file system operations or process spawning.
+
+- **To Modify Route Discovery:**
+    - Edit the `discoverRoutes` and `scanRoutesDirectory` methods in `src/index.ts`. For example, to change the routes directory from `src/routes` to `src/pages`, update the hardcoded path in `discoverRoutes`.
+
+- **To Enhance the Template Engine:**
+    - All logic is in `processTemplate`, `parseTemplateArgs`, and `evaluateExpression` in `src/index.ts`.
+    - To add a new operator (e.g., `&&`), modify the parsing logic within `evaluateExpression`.
+    - To support more complex data types in function arguments, enhance `parseTemplateArgs`.
+
+- **To Modify Static File Serving:**
+    - The logic resides in the `fetch` handler in `src/server.ts`. To add a new directory for static assets, add another `if (await fileExists(...))` check in the static asset handling section.
+
+- **To Update Scaffolding Templates:**
+    - The file contents for `zyte new` and `zyte add-route` are hardcoded as multi-line string literals inside the `createNewProject` and `addRoute` functions in `src/cli.ts`. Modify these strings directly to change the generated code.
 
 ---
 
-## Extending & Modifying
-- **Add new route types:** Update route discovery logic in `src/index.ts`.
-- **Support more static asset types:** Update static file logic in `src/server.ts`.
-- **Change client bundle/script injection:** Update HTML post-processing in SSR render (in `src/index.ts`).
-- **Add CLI commands:** Extend `src/cli.ts` with new command logic and help output.
-- **Change CSS injection:** Update SSR render logic to alter how/where CSS is injected.
-
----
-
-## Troubleshooting & Debugging
-- **Client script not loaded:**
-  - Ensure it is bundled to `dist/client`.
-  - Check that the script tag is injected in the rendered HTML.
-- **SSR errors reference `.client.ts`:**
-  - Confirm route discovery ignores `.client.ts` files.
-- **Static assets not served:**
-  - Check the static file search order in `src/server.ts`.
-  - Ensure asset paths match the expected URL structure.
-- **CSS not applied:**
-  - Make sure a matching `.css` file exists and is not empty.
-  - Confirm `<link rel="stylesheet">` is injected in the SSR output.
-
----
-
-## Author/AI Note
-This documentation is for future AI/codebase maintainers. The framework is designed for clarity, maintainability, and a smooth developer experience for both SSR and client-side interactivity. When extending or refactoring, prefer explicit, convention-driven logic and keep the CLI as the single source of build/dev truth.
-
----
-
-## Recent Improvements & Rationale
+## 8. Recent Improvements & Rationale
 - **Automated CSS injection:** SSR now automatically injects a `<link rel="stylesheet">` tag for matching `.css` files for both app and route components. This reduces manual errors and keeps templates clean.
 - **No hardcoded CSS links in templates:** CLI generators no longer add `<link rel="stylesheet">` tags; injection is handled by SSR for consistency.
 - **Static file serving for `/routes/...`:** The server now maps `/routes/...` URLs to `src/routes/...` for assets like CSS, ensuring correct loading for all routes and simplifying asset management.
 
 ---
 
-## For Future Maintainers
+## 9. For Future Maintainers
 - **When adding features:**
   - Update this context file with rationale and usage notes.
   - Prefer convention over configuration.

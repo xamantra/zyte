@@ -19,7 +19,6 @@ const COMMANDS = {
   'add-route': 'Add a new route to the project',
   'dev': 'Start development server',
   'build': 'Build the project for production',
-  'start': 'Run the built server.js',
   'help': 'Show this help message'
 };
 
@@ -211,6 +210,31 @@ button:hover {
 });
 `;
     await writeFile(join(projectDir, 'src', 'app', 'app.client.ts'), appClientTs);
+
+    // Create server.config.ts
+    const serverConfigTs = `import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  // Custom port (optional)
+  // port: 3000,
+  
+  // Callback when server starts (optional)
+  onStart: async ({ port, host, url }) => {
+    console.log(\`🎉 Server is ready at \${url}\`);
+    console.log(\`📊 Keep-alive endpoint: \${url}/__zyte_keepalive\`);
+    
+    // You can perform any custom initialization here
+    // For example:
+    // - Connect to databases
+    // - Initialize external services
+    // - Set up background tasks
+    // - Send notifications
+  }
+};
+
+export default config;
+`;
+    await writeFile(join(projectDir, 'src', 'server.config.ts'), serverConfigTs);
 
     // Create counter route files
     const counterDir = join(projectDir, 'src', 'routes', 'counter');
