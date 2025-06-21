@@ -6,7 +6,43 @@
 
 When deploying to Render.com, you may encounter an esbuild bundling error. This is a known issue that has been fixed in the framework. Here are the recommended deployment steps:
 
-#### Option 1: Use the Framework's Built-in Server (Recommended)
+#### Option 1: Pre-built Deployment (Recommended)
+
+**This approach bypasses bundling issues entirely by including the built files in your repository.**
+
+1. **Include `dist/` folder in your commit:**
+   ```bash
+   git add dist/
+   git commit -m "Add built files for deployment"
+   git push
+   ```
+
+2. **Set your Build Command to:**
+   ```bash
+   bun install
+   ```
+
+3. **Set your Start Command to:**
+   ```bash
+   bun run dist/server.js
+   ```
+
+4. **Make sure your `package.json` has:**
+   ```json
+   {
+     "scripts": {
+       "start": "bun run dist/server.js"
+     }
+   }
+   ```
+
+**Benefits:**
+- ✅ No bundling during deployment (faster builds)
+- ✅ No esbuild dependency issues
+- ✅ Reliable deployment process
+- ✅ Works with any deployment platform
+
+#### Option 2: Use the Framework's Built-in Server
 
 1. Set your **Build Command** to:
    ```bash
@@ -28,7 +64,7 @@ When deploying to Render.com, you may encounter an esbuild bundling error. This 
    }
    ```
 
-#### Option 2: Use Bun Directly
+#### Option 3: Use Bun Directly
 
 1. Set your **Build Command** to:
    ```bash

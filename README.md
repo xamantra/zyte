@@ -287,18 +287,40 @@ export async function loadUserInfo(userId: string) {
 
 Zyte SSR apps can be deployed to any platform that supports Bun. Here are the recommended deployment configurations:
 
+### Recommended: Pre-built Deployment
+
+**Include your `dist/` folder in your repository to bypass bundling issues entirely:**
+
+1. **Build locally:** `bun run build`
+2. **Commit built files:** `git add dist/ && git commit -m "Add built files"`
+3. **Deploy with:**
+   - **Build Command:** `bun install`
+   - **Start Command:** `bun run dist/server.js`
+
+**Benefits:**
+- ✅ No bundling during deployment (faster builds)
+- ✅ No esbuild dependency issues
+- ✅ Reliable deployment process
+
 ### Render.com
 
-1. **Build Command:** `bun install && bun run build`
+1. **Build Command:** `bun install`
 2. **Start Command:** `bun run dist/server.js`
 
 ### Vercel
 
-1. **Build Command:** `bun install && bun run build`
+1. **Build Command:** `bun install`
 2. **Output Directory:** `dist`
 3. **Install Command:** `bun install`
 
 ### Railway
+
+1. **Build Command:** `bun install`
+2. **Start Command:** `bun run dist/server.js`
+
+### Alternative: Build During Deployment
+
+If you prefer to build during deployment:
 
 1. **Build Command:** `bun install && bun run build`
 2. **Start Command:** `bun run dist/server.js`
