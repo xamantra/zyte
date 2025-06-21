@@ -317,22 +317,43 @@ async function createExampleRoute(baseDir: string, routeName: string) {
   await mkdir(exampleDir);
 
   // Create <routeName>.ts
-  const routeTs = `export function ${routeName}Page() {
+  const routeTs = `export function ${routeName}Page(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    const theme = query.theme || 'light';
+    
     return \`
-    <div class="container">
+    <div class="container \${theme}-theme">
       <h1>${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</h1>
-      <p>This is the ${routeName} page.</p>
+      <p>Hello, \${name}!</p>
+      <p>Current theme: \${theme}</p>
+      
+      <div class="query-demo">
+        <h3>Query Parameters Demo</h3>
+        <p>Try these URLs:</p>
+        <ul>
+          <li><a href="/${routeName}?name=Alice">/?name=Alice</a></li>
+          <li><a href="/${routeName}?theme=dark">/?theme=dark</a></li>
+          <li><a href="/${routeName}?name=Bob&theme=dark">/?name=Bob&theme=dark</a></li>
+        </ul>
+      </div>
     </div>
     \`;
   }
 
-  export function header() {
+  export function header(context?: any) {
+    const query = context?.query || {};
+    const theme = query.theme || 'light';
+    
     return \`
-    <header class="page-header">
+    <header class="page-header \${theme}-theme">
       <nav>
         <a href="/">Home</a>
         <a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a>
       </nav>
+      <div class="theme-indicator">
+        Theme: \${theme}
+      </div>
     </header>
     \`;
   }
@@ -345,9 +366,22 @@ async function createExampleRoute(baseDir: string, routeName: string) {
     \`;
   }
 
-  export function sidebar() {
+  export function sidebar(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    
     return \`
     <aside class="sidebar">
+      <h3>User Info</h3>
+      <p>Welcome, \${name}!</p>
+      
+      <h3>Query Parameters</h3>
+      <ul>
+        <li>Name: \${query.name || 'Not set'}</li>
+        <li>Theme: \${query.theme || 'light'}</li>
+        <li>Page: \${query.page || '1'}</li>
+      </ul>
+      
       <h3>Related Links</h3>
       <ul>
         <li><a href="/">Home</a></li>
@@ -355,6 +389,12 @@ async function createExampleRoute(baseDir: string, routeName: string) {
       </ul>
     </aside>
     \`;
+  }
+
+  export function getTitle(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    return \`${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Welcome \${name}\`;
   }
 `;
   await writeFile(join(exampleDir, `${routeName}.ts`), routeTs);
@@ -365,13 +405,21 @@ async function createExampleRoute(baseDir: string, routeName: string) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Zyte SSR</title>
+  <title>{{ getTitle() }}</title>
 </head>
 <body>
   {{ header() }}
   
   <main class="main-content">
     {{ ${routeName}Page() }}
+    
+    <!-- Direct query parameter access in templates -->
+    <div class="query-info">
+      <h3>Current Query Parameters:</h3>
+      <p>Name: {{ query.name || 'Not set' }}</p>
+      <p>Theme: {{ query.theme || 'light' }}</p>
+      <p>Page: {{ query.page || '1' }}</p>
+    </div>
   </main>
   
   {{ sidebar() }}
@@ -434,6 +482,67 @@ async function createExampleRoute(baseDir: string, routeName: string) {
   text-align: center;
 }
 
+.container.dark-theme {
+  background: #1f2937;
+  color: white;
+}
+
+.query-demo {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.container.dark-theme .query-demo {
+  background: #374151;
+}
+
+.query-demo h3 {
+  margin-top: 0;
+  color: #2563eb;
+}
+
+.query-demo ul {
+  list-style: none;
+  padding: 0;
+}
+
+.query-demo li {
+  margin: 0.5rem 0;
+}
+
+.query-demo a {
+  color: #2563eb;
+  text-decoration: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+  transition: background-color 0.2s;
+}
+
+.query-demo a:hover {
+  background-color: #e5e7eb;
+}
+
+.query-info {
+  background: #f0f9ff;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.container.dark-theme .query-info {
+  background: #1e3a8a;
+}
+
+.query-info h3 {
+  margin-top: 0;
+  color: #2563eb;
+}
+
 .sidebar {
   background: white;
   padding: 1.5rem;
@@ -483,6 +592,22 @@ async function createExampleRoute(baseDir: string, routeName: string) {
 
 h1 {
   color: #2563eb;
+  margin-bottom: 1rem;
+}
+
+p {
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+.container.dark-theme h1,
+.container.dark-theme p {
+  color: white;
+}
+
+.theme-indicator {
+  font-size: 0.9rem;
+  opacity: 0.8;
 }
 `;
   await writeFile(join(exampleDir, `${routeName}.css`), routeCss);
@@ -511,22 +636,43 @@ async function addRoute(routeName?: string) {
     await mkdir(routeDir);
 
     // Create route.ts
-    const routeTs = `export function ${routeName}Page() {
+    const routeTs = `export function ${routeName}Page(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    const theme = query.theme || 'light';
+    
     return \`
-    <div class="container">
+    <div class="container \${theme}-theme">
         <h1>${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</h1>
-        <p>This is the ${routeName} page.</p>
+        <p>Hello, \${name}!</p>
+        <p>Current theme: \${theme}</p>
+        
+        <div class="query-demo">
+            <h3>Query Parameters Demo</h3>
+            <p>Try these URLs:</p>
+            <ul>
+                <li><a href="/${routeName}?name=Alice">/?name=Alice</a></li>
+                <li><a href="/${routeName}?theme=dark">/?theme=dark</a></li>
+                <li><a href="/${routeName}?name=Bob&theme=dark">/?name=Bob&theme=dark</a></li>
+            </ul>
+        </div>
     </div>
     \`;
 }
 
-export function header() {
+export function header(context?: any) {
+    const query = context?.query || {};
+    const theme = query.theme || 'light';
+    
     return \`
-    <header class="page-header">
+    <header class="page-header \${theme}-theme">
         <nav>
             <a href="/">Home</a>
             <a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a>
         </nav>
+        <div class="theme-indicator">
+            Theme: \${theme}
+        </div>
     </header>
     \`;
 }
@@ -539,9 +685,22 @@ export function footer() {
     \`;
 }
 
-export function sidebar() {
+export function sidebar(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    
     return \`
     <aside class="sidebar">
+        <h3>User Info</h3>
+        <p>Welcome, \${name}!</p>
+        
+        <h3>Query Parameters</h3>
+        <ul>
+            <li>Name: \${query.name || 'Not set'}</li>
+            <li>Theme: \${query.theme || 'light'}</li>
+            <li>Page: \${query.page || '1'}</li>
+        </ul>
+        
         <h3>Related Links</h3>
         <ul>
             <li><a href="/">Home</a></li>
@@ -549,6 +708,12 @@ export function sidebar() {
         </ul>
     </aside>
     \`;
+}
+
+export function getTitle(context?: any) {
+    const query = context?.query || {};
+    const name = query.name || 'Guest';
+    return \`${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Welcome \${name}\`;
 }`;
 
     await writeFile(join(routeDir, `${routeName}.ts`), routeTs);
@@ -559,13 +724,21 @@ export function sidebar() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Zyte SSR</title>
+    <title>{{ getTitle() }}</title>
 </head>
 <body>
     {{ header() }}
     
     <main class="main-content">
         {{ ${routeName}Page() }}
+        
+        <!-- Direct query parameter access in templates -->
+        <div class="query-info">
+            <h3>Current Query Parameters:</h3>
+            <p>Name: {{ query.name || 'Not set' }}</p>
+            <p>Theme: {{ query.theme || 'light' }}</p>
+            <p>Page: {{ query.page || '1' }}</p>
+        </div>
     </main>
     
     {{ sidebar() }}
@@ -594,11 +767,17 @@ export function sidebar() {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.page-header.dark-theme {
+    background: #1f2937;
+}
+
 .page-header nav {
     max-width: 1200px;
     margin: 0 auto;
     display: flex;
     gap: 2rem;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .page-header a {
@@ -609,6 +788,11 @@ export function sidebar() {
 
 .page-header a:hover {
     text-decoration: underline;
+}
+
+.theme-indicator {
+    font-size: 0.9rem;
+    opacity: 0.8;
 }
 
 .main-content {
@@ -627,6 +811,67 @@ export function sidebar() {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     text-align: center;
+}
+
+.container.dark-theme {
+    background: #1f2937;
+    color: white;
+}
+
+.query-demo {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    text-align: left;
+}
+
+.container.dark-theme .query-demo {
+    background: #374151;
+}
+
+.query-demo h3 {
+    margin-top: 0;
+    color: #2563eb;
+}
+
+.query-demo ul {
+    list-style: none;
+    padding: 0;
+}
+
+.query-demo li {
+    margin: 0.5rem 0;
+}
+
+.query-demo a {
+    color: #2563eb;
+    text-decoration: none;
+    padding: 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+    transition: background-color 0.2s;
+}
+
+.query-demo a:hover {
+    background-color: #e5e7eb;
+}
+
+.query-info {
+    background: #f0f9ff;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.container.dark-theme .query-info {
+    background: #1e3a8a;
+}
+
+.query-info h3 {
+    margin-top: 0;
+    color: #2563eb;
 }
 
 .sidebar {
@@ -684,7 +929,13 @@ h1 {
 p {
     color: #6b7280;
     font-size: 1.1rem;
-}`;
+}
+
+.container.dark-theme h1,
+.container.dark-theme p {
+    color: white;
+}
+`;
 
     await writeFile(join(routeDir, `${routeName}.css`), routeCss);
 

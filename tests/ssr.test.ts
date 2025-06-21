@@ -248,4 +248,76 @@ export function getCount(count: number) {
     expect(html).toContain('<span>Count: 42</span>');
     cleanupAll();
   });
+
+  it('supports query parameters in templates', async () => {
+    // Setup component with query parameter access
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `
+export function searchPage(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || '';
+  return \`<h1>Search: \${q}</h1>\`;
+}
+
+export function getTitle(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || 'Search';
+  return \`Search: \${q}\`;
+}
+`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ searchPage() }}
+  <p>Query: {{ query.q || 'None' }}</p>
+  <p>Page: {{ query.page || '1' }}</p>
+</body>
+</html>`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const context = {
+      params: {},
+      query: { q: 'typescript', page: '2' },
+      headers: { accept: 'text/html' }
+    };
+    const html = await ssr.render('/', context);
+    expect(html).toContain('<title>Search: typescript</title>');
+    expect(html).toContain('<h1>Search: typescript</h1>');
+    expect(html).toContain('<p>Query: typescript</p>');
+    expect(html).toContain('<p>Page: 2</p>');
+    cleanupAll();
+  });
+
+  it('supports query parameters in function arguments', async () => {
+    // Setup component with query parameters in function arguments
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `
+export function displayUser(userId: string) {
+  return \`<div>User ID: \${userId}</div>\`;
+}
+
+export function showPage(page: string) {
+  return \`<div>Page: \${page}</div>\`;
+}
+`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>
+<html>
+<body>
+  {{ displayUser(query.userId) }}
+  {{ showPage(query.page) }}
+</body>
+</html>`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const context = {
+      params: {},
+      query: { userId: '123', page: '5' },
+      headers: { accept: 'text/html' }
+    };
+    const html = await ssr.render('/', context);
+    expect(html).toContain('<div>User ID: 123</div>');
+    expect(html).toContain('<div>Page: 5</div>');
+    cleanupAll();
+  });
 }); 

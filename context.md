@@ -66,6 +66,9 @@ The framework now supports multiple exports and enhanced template expressions:
 ### Supported Template Expressions
 - **Function calls:** `{{ functionName() }}`, `{{ functionName('arg') }}`, `{{ functionName(arg1, arg2) }}`
 - **Property access:** `{{ propertyName }}`, `{{ data.title }}`
+- **Query parameters:** `{{ query.paramName }}`, `{{ query.search || 'default' }}`
+- **Route parameters:** `{{ params.paramName }}`
+- **Headers:** `{{ headers.headerName }}`
 - **Async functions:** All function calls are awaited, supporting `async`/`await` in SSR components
 
 ### Example: Multiple Exports
@@ -119,11 +122,78 @@ export async function loadUserInfo(userId: string) {
 </html>
 ```
 
+### Example: Multiple Exports with Query Parameters
+```ts
+// src/routes/search/search.ts
+export function searchPage(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || '';
+  const page = query.page || '1';
+  
+  return `
+  <div class="search-results">
+    <h1>Search Results</h1>
+    <p>Query: ${q}</p>
+    <p>Page: ${page}</p>
+  </div>
+  `;
+}
+
+export function header(context?: any) {
+  const query = context?.query || {};
+  const theme = query.theme || 'light';
+  
+  return `
+  <header class="header ${theme}-theme">
+    <nav>Navigation</nav>
+  </header>
+  `;
+}
+
+export function getTitle(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || 'Search';
+  return `Search: ${q}`;
+}
+
+export const pageData = {
+  author: "John Doe",
+  date: "2024-01-01"
+};
+```
+
+```html
+<!-- src/routes/search/search.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ header() }}
+  
+  <main>
+    {{ searchPage() }}
+    <p>By {{ pageData.author }} on {{ pageData.date }}</p>
+    
+    <!-- Direct query parameter access -->
+    <div class="query-info">
+      <p>Search: {{ query.q || 'None' }}</p>
+      <p>Page: {{ query.page || '1' }}</p>
+      <p>Theme: {{ query.theme || 'light' }}</p>
+    </div>
+  </main>
+</body>
+</html>
+```
+
 ### Argument Types Supported
 - **Strings:** `{{ functionName('hello') }}`, `{{ functionName("world") }}`
 - **Numbers:** `{{ functionName(42) }}`, `{{ functionName(3.14) }}`
 - **Booleans:** `{{ functionName(true) }}`, `{{ functionName(false) }}`
 - **Null/Undefined:** `{{ functionName(null) }}`, `{{ functionName(undefined) }}`
+- **Query parameters:** `{{ functionName(query.search) }}`, `{{ functionName(query.page) }}`
+- **Context access:** Functions receive the full context object as the last parameter
 
 ---
 

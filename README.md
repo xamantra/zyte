@@ -168,6 +168,58 @@ export const pageData = {
 </html>
 ```
 
+### Query Parameters Support
+
+Zyte SSR provides easy access to query parameters in both templates and components:
+
+```ts
+// src/routes/search/search.ts
+export function searchPage(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || '';
+  const page = query.page || '1';
+  
+  return `
+  <div class="search-results">
+    <h1>Search Results</h1>
+    <p>Query: ${q}</p>
+    <p>Page: ${page}</p>
+  </div>
+  `;
+}
+
+export function getTitle(context?: any) {
+  const query = context?.query || {};
+  const q = query.q || 'Search';
+  return `Search: ${q}`;
+}
+```
+
+```html
+<!-- src/routes/search/search.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ searchPage() }}
+  
+  <!-- Direct query parameter access in templates -->
+  <div class="query-info">
+    <p>Search term: {{ query.q || 'None' }}</p>
+    <p>Page: {{ query.page || '1' }}</p>
+    <p>Sort: {{ query.sort || 'relevance' }}</p>
+  </div>
+</body>
+</html>
+```
+
+**Access query parameters:**
+- **In templates:** `{{ query.paramName }}`
+- **In functions:** Access via the `context` parameter
+- **URL examples:** `/search?q=typescript&page=2&sort=date`
+
 ### Async SSR Example
 ```ts
 // src/routes/about/about.ts

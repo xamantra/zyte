@@ -156,6 +156,7 @@ export class ZyteSSR {
   private async processTemplate(html: string, component: any, context: SSRContext): Promise<string> {
     // Enhanced template processing - support multiple exports and more flexible expressions
     // Supports: {{ functionName() }}, {{ functionName('arg') }}, {{ functionName(arg1, arg2) }}
+    // Also supports: {{ query.paramName }}, {{ params.paramName }}, {{ headers.headerName }}
     const regex = /\{\{\s*([^}]+)\s*\}\}/g;
     let result = '';
     let lastIndex = 0;
@@ -174,8 +175,9 @@ export class ZyteSSR {
           
           if (typeof func === 'function') {
             // Parse arguments - support strings, numbers, and simple expressions
-            const args = argsStr ? this.parseTemplateArgs(argsStr) : [];
-            const value = await func(...args);
+            const args = argsStr ? this.parseTemplateArgs(argsStr, context) : [];
+            // Pass context as the last argument to functions
+            const value = await func(...args, context);
             result += value;
           } else {
             console.warn(`Function ${funcName} not found in component`);
@@ -183,7 +185,7 @@ export class ZyteSSR {
           }
         } else {
           // Handle simple property access or expressions
-          const value = this.evaluateExpression(expression, component);
+          const value = this.evaluateExpression(expression, component, context);
           result += value;
         }
       } catch (error) {
@@ -196,7 +198,7 @@ export class ZyteSSR {
     return result;
   }
 
-  private parseTemplateArgs(argsStr: string): any[] {
+  private parseTemplateArgs(argsStr: string, context: SSRContext): any[] {
     if (!argsStr.trim()) return [];
     
     return argsStr.split(',').map(arg => {
@@ -221,12 +223,68 @@ export class ZyteSSR {
       if (arg === 'null') return null;
       if (arg === 'undefined') return undefined;
       
+      // Handle context access (query, params, headers)
+      if (arg.startsWith('query.') || arg.startsWith('params.') || arg.startsWith('headers.')) {
+        return this.evaluateExpression(arg, {}, context);
+      }
+      
       // Return as string if no other type matches
       return arg;
     });
   }
 
-  private evaluateExpression(expression: string, component: any): any {
+  private evaluateExpression(expression: string, component: any, context: SSRContext): any {
+    // Handle logical OR expressions (e.g., query.q || 'default')
+    if (expression.includes('||')) {
+      const parts = expression.split('||').map(part => part.trim());
+      for (const part of parts) {
+        const value = this.evaluateSingleExpression(part, component, context);
+        if (value !== '' && value !== null && value !== undefined) {
+          return value;
+        }
+      }
+      return parts[parts.length - 1]; // Return the last part as fallback
+    }
+    
+    return this.evaluateSingleExpression(expression, component, context);
+  }
+
+  private evaluateSingleExpression(expression: string, component: any, context: SSRContext): any {
+    // Handle context access first (query, params, headers)
+    if (expression.startsWith('query.')) {
+      const key = expression.slice(6); // Remove 'query.'
+      return context.query[key] || '';
+    }
+    
+    if (expression.startsWith('params.')) {
+      const key = expression.slice(7); // Remove 'params.'
+      return context.params[key] || '';
+    }
+    
+    if (expression.startsWith('headers.')) {
+      const key = expression.slice(8); // Remove 'headers.'
+      return context.headers[key] || '';
+    }
+    
+    // Handle string literals
+    if ((expression.startsWith('"') && expression.endsWith('"')) || 
+        (expression.startsWith("'") && expression.endsWith("'"))) {
+      return expression.slice(1, -1);
+    }
+    
+    // Handle numbers
+    if (!isNaN(Number(expression))) {
+      return Number(expression);
+    }
+    
+    // Handle booleans
+    if (expression === 'true') return true;
+    if (expression === 'false') return false;
+    
+    // Handle null/undefined
+    if (expression === 'null') return null;
+    if (expression === 'undefined') return undefined;
+    
     // Handle simple property access
     if (component[expression] !== undefined) {
       return component[expression];
