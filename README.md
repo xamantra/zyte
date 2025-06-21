@@ -204,6 +204,23 @@ import { Header } from '../../layouts/Header';
 
 ---
 
+## HTML Syntax Highlighting
+
+For better developer experience, install the **es6-string-html** VS Code extension and add `/*html*/` before template literals:
+
+```typescript
+export function AboutPage() {
+  return /*html*/`
+    <div class="about-page">
+      <h1>About Us</h1>
+      <p>Welcome to our company!</p>
+    </div>
+  `;
+}
+```
+
+---
+
 ## Example: Minimal Counter Route
 
 **src/routes/counter/counter.ts**
