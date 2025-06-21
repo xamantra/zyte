@@ -88,9 +88,6 @@ export class ZyteSSR {
       }
       const component = await this.loadComponent(appComponentPath);
       let processedHtml = await this.processTemplate(html, component, context);
-      if (context.headers['accept']?.includes('text/html')) {
-        processedHtml = this.addInteractivityScript(processedHtml, { path: '/', component: 'src/app/app.ts' });
-      }
       return processedHtml;
     }
 
@@ -122,9 +119,6 @@ export class ZyteSSR {
     }
     const component = await this.loadComponent(componentPath);
     let processedHtml = await this.processTemplate(html, component, context);
-    if (context.headers['accept']?.includes('text/html')) {
-      processedHtml = this.addInteractivityScript(processedHtml, route);
-    }
     return processedHtml;
   }
 
@@ -302,129 +296,6 @@ export class ZyteSSR {
       }
     }
     return value;
-  }
-
-  private addInteractivityScript(html: string, route: RouteConfig): string {
-    const script = `
-    <script>
-      // Zyte SSR Interactivity Script
-      (function() {
-        // Handle client-side navigation
-        document.addEventListener('click', function(e) {
-          const link = e.target.closest('a');
-          if (link && link.href && link.href.startsWith(window.location.origin)) {
-            e.preventDefault();
-            navigateTo(link.href);
-          }
-        });
-
-        // Handle browser back/forward
-        window.addEventListener('popstate', function() {
-          navigateTo(window.location.href, false);
-        });
-
-        async function navigateTo(url, pushState = true) {
-          try {
-            const response = await fetch(url, {
-              headers: {
-                'Accept': 'text/html',
-                'X-Requested-With': 'XMLHttpRequest'
-              }
-            });
-            
-            if (response.ok) {
-              const html = await response.text();
-              
-              // Update the page content
-              const parser = new DOMParser();
-              const newDoc = parser.parseFromString(html, 'text/html');
-              
-              // Update head content (CSS, meta tags, etc.)
-              const newHead = newDoc.querySelector('head');
-              const currentHead = document.head;
-              
-              if (newHead) {
-                // Remove existing CSS links and scripts
-                const existingLinks = currentHead.querySelectorAll('link[rel="stylesheet"]');
-                const existingScripts = currentHead.querySelectorAll('script[src]');
-                
-                existingLinks.forEach(link => link.remove());
-                existingScripts.forEach(script => script.remove());
-                
-                // Add new CSS links and meta tags
-                const newLinks = newHead.querySelectorAll('link[rel="stylesheet"]');
-                const newMeta = newHead.querySelectorAll('meta');
-                const newTitle = newHead.querySelector('title');
-                
-                newLinks.forEach(link => {
-                  const newLink = document.createElement('link');
-                  newLink.rel = link.rel;
-                  newLink.href = link.href;
-                  if (link.type) newLink.type = link.type;
-                  currentHead.appendChild(newLink);
-                });
-                
-                newMeta.forEach(meta => {
-                  const newMeta = document.createElement('meta');
-                  if (meta.name) newMeta.name = meta.name;
-                  if (meta.content) newMeta.content = meta.content;
-                  if (meta.property) newMeta.property = meta.property;
-                  currentHead.appendChild(newMeta);
-                });
-                
-                if (newTitle) {
-                  document.title = newTitle.textContent;
-                }
-              }
-              
-              // Update body content
-              const newContent = newDoc.querySelector('body');
-              
-              if (newContent) {
-                // Remove existing scripts from body
-                const existingBodyScripts = document.body.querySelectorAll('script[src]');
-                existingBodyScripts.forEach(script => script.remove());
-                
-                // Update body content
-                document.body.innerHTML = newContent.innerHTML;
-                
-                // Add new scripts from the body
-                const newBodyScripts = newContent.querySelectorAll('script[src]');
-                newBodyScripts.forEach(script => {
-                  const newScript = document.createElement('script');
-                  newScript.src = script.src;
-                  if (script.type) newScript.type = script.type;
-                  document.body.appendChild(newScript);
-                });
-                
-                // Execute any inline scripts
-                const inlineScripts = newContent.querySelectorAll('script:not([src])');
-                inlineScripts.forEach(script => {
-                  const newScript = document.createElement('script');
-                  newScript.textContent = script.textContent;
-                  document.body.appendChild(newScript);
-                });
-                
-                // Update URL
-                if (pushState) {
-                  window.history.pushState({}, '', url);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Navigation error:', error);
-            // Fallback to full page reload on error
-            window.location.href = url;
-          }
-        }
-
-        // Expose navigation function globally
-        window.zyteNavigate = navigateTo;
-      })();
-    </script>`;
-
-    // Insert script before closing body tag
-    return html.replace('</body>', `${script}\n</body>`);
   }
 
   private render404(): string {
