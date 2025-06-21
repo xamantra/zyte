@@ -78,6 +78,25 @@ export function counterPage() {
   </div>
   `;
 }
+
+export function header() {
+  return `
+  <header class="page-header">
+    <nav>
+      <a href="/">Home</a>
+      <a href="/counter">Counter</a>
+    </nav>
+  </header>
+  `;
+}
+
+export function footer() {
+  return `
+  <footer class="page-footer">
+    <p>&copy; 2024 Zyte SSR Framework</p>
+  </footer>
+  `;
+}
 ```
 
 **src/routes/counter/counter.html**
@@ -90,7 +109,61 @@ export function counterPage() {
   <title>Counter - Zyte SSR</title>
 </head>
 <body>
-  {{ counterPage() }}
+  {{ header() }}
+  
+  <main class="main-content">
+    {{ counterPage() }}
+  </main>
+  
+  {{ footer() }}
+</body>
+</html>
+```
+
+### Multiple Exports & Template Expressions
+
+Zyte SSR supports multiple exports from your TypeScript components and flexible template expressions:
+
+```ts
+// src/routes/about/about.ts
+export function aboutPage() {
+  return `<div>About page content</div>`;
+}
+
+export function header() {
+  return `<header>Navigation</header>`;
+}
+
+export function sidebar() {
+  return `<aside>Sidebar content</aside>`;
+}
+
+export function getTitle() {
+  return "About Us";
+}
+
+export const pageData = {
+  author: "John Doe",
+  date: "2024-01-01"
+};
+```
+
+```html
+<!-- src/routes/about/about.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ header() }}
+  
+  <main>
+    {{ aboutPage() }}
+    <p>By {{ pageData.author }} on {{ pageData.date }}</p>
+  </main>
+  
+  {{ sidebar() }}
 </body>
 </html>
 ```
@@ -102,6 +175,19 @@ export async function aboutPage() {
   const data = await fetchSomeData();
   return `<div>Data: ${data}</div>`;
 }
+
+export async function loadUserInfo(userId: string) {
+  const user = await fetchUser(userId);
+  return `<div>User: ${user.name}</div>`;
+}
+```
+
+```html
+<!-- Template with async function calls -->
+<body>
+  {{ aboutPage() }}
+  {{ loadUserInfo('123') }}
+</body>
 ```
 
 ---

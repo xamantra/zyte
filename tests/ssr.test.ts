@@ -169,4 +169,83 @@ describe('SSR Framework', () => {
     expect(html).toContain('<h1>Async SSR</h1>');
     cleanupAll();
   });
+
+  it('supports multiple exports in templates', async () => {
+    // Setup multiple exports component
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `
+export function header() {
+  return '<header>Navigation</header>';
+}
+
+export function mainContent() {
+  return '<main>Main content</main>';
+}
+
+export function footer() {
+  return '<footer>Footer</footer>';
+}
+
+export function getTitle() {
+  return 'Test Page';
+}
+
+export const pageData = {
+  author: 'John Doe',
+  date: '2024-01-01'
+};
+`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ getTitle() }}</title>
+</head>
+<body>
+  {{ header() }}
+  {{ mainContent() }}
+  <p>By {{ pageData.author }} on {{ pageData.date }}</p>
+  {{ footer() }}
+</body>
+</html>`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const html = await ssr.render('/', { params: {}, query: {}, headers: { accept: 'text/html' } });
+    expect(html).toContain('<header>Navigation</header>');
+    expect(html).toContain('<main>Main content</main>');
+    expect(html).toContain('<footer>Footer</footer>');
+    expect(html).toContain('<title>Test Page</title>');
+    expect(html).toContain('By John Doe on 2024-01-01');
+    cleanupAll();
+  });
+
+  it('supports function calls with arguments', async () => {
+    // Setup component with function arguments
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `
+export function greet(name: string) {
+  return \`<h1>Hello, \${name}!</h1>\`;
+}
+
+export function formatDate(date: string) {
+  return \`<p>Date: \${date}</p>\`;
+}
+
+export function getCount(count: number) {
+  return \`<span>Count: \${count}</span>\`;
+}
+`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>
+<html>
+<body>
+  {{ greet('World') }}
+  {{ formatDate('2024-01-01') }}
+  {{ getCount(42) }}
+</body>
+</html>`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const html = await ssr.render('/', { params: {}, query: {}, headers: { accept: 'text/html' } });
+    expect(html).toContain('<h1>Hello, World!</h1>');
+    expect(html).toContain('<p>Date: 2024-01-01</p>');
+    expect(html).toContain('<span>Count: 42</span>');
+    cleanupAll();
+  });
 }); 

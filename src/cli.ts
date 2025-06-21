@@ -325,6 +325,37 @@ async function createExampleRoute(baseDir: string, routeName: string) {
     </div>
     \`;
   }
+
+  export function header() {
+    return \`
+    <header class="page-header">
+      <nav>
+        <a href="/">Home</a>
+        <a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a>
+      </nav>
+    </header>
+    \`;
+  }
+
+  export function footer() {
+    return \`
+    <footer class="page-footer">
+      <p>&copy; 2024 Zyte SSR Framework</p>
+    </footer>
+    \`;
+  }
+
+  export function sidebar() {
+    return \`
+    <aside class="sidebar">
+      <h3>Related Links</h3>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a></li>
+      </ul>
+    </aside>
+    \`;
+  }
 `;
   await writeFile(join(exampleDir, `${routeName}.ts`), routeTs);
 
@@ -337,7 +368,15 @@ async function createExampleRoute(baseDir: string, routeName: string) {
   <title>${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Zyte SSR</title>
 </head>
 <body>
-  {{ ${routeName}Page() }}
+  {{ header() }}
+  
+  <main class="main-content">
+    {{ ${routeName}Page() }}
+  </main>
+  
+  {{ sidebar() }}
+  
+  {{ footer() }}
 </body>
 </html>`;
   await writeFile(join(exampleDir, `${routeName}.html`), routeHtml);
@@ -346,18 +385,100 @@ async function createExampleRoute(baseDir: string, routeName: string) {
   const routeCss = `body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
-  padding: 2rem;
+  padding: 0;
   background-color: #f3f4f6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  background: #2563eb;
+  color: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.page-header nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  gap: 2rem;
+}
+
+.page-header a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.page-header a:hover {
+  text-decoration: underline;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 2rem;
 }
 
 .container {
-  max-width: 800px;
-  margin: 0 auto;
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   text-align: center;
+}
+
+.sidebar {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  height: fit-content;
+}
+
+.sidebar h3 {
+  margin-top: 0;
+  color: #2563eb;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar li {
+  margin: 0.5rem 0;
+}
+
+.sidebar a {
+  color: #374151;
+  text-decoration: none;
+  display: block;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.sidebar a:hover {
+  background-color: #f3f4f6;
+  color: #2563eb;
+}
+
+.page-footer {
+  background: #1f2937;
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  margin-top: auto;
 }
 
 h1 {
@@ -397,6 +518,37 @@ async function addRoute(routeName?: string) {
         <p>This is the ${routeName} page.</p>
     </div>
     \`;
+}
+
+export function header() {
+    return \`
+    <header class="page-header">
+        <nav>
+            <a href="/">Home</a>
+            <a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a>
+        </nav>
+    </header>
+    \`;
+}
+
+export function footer() {
+    return \`
+    <footer class="page-footer">
+        <p>&copy; 2024 Zyte SSR Framework</p>
+    </footer>
+    \`;
+}
+
+export function sidebar() {
+    return \`
+    <aside class="sidebar">
+        <h3>Related Links</h3>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/${routeName}">${routeName.charAt(0).toUpperCase() + routeName.slice(1)}</a></li>
+        </ul>
+    </aside>
+    \`;
 }`;
 
     await writeFile(join(routeDir, `${routeName}.ts`), routeTs);
@@ -410,7 +562,15 @@ async function addRoute(routeName?: string) {
     <title>${routeName.charAt(0).toUpperCase() + routeName.slice(1)} - Zyte SSR</title>
 </head>
 <body>
-    {{ ${routeName}Page() }}
+    {{ header() }}
+    
+    <main class="main-content">
+        {{ ${routeName}Page() }}
+    </main>
+    
+    {{ sidebar() }}
+    
+    {{ footer() }}
 </body>
 </html>`;
 
@@ -420,18 +580,100 @@ async function addRoute(routeName?: string) {
     const routeCss = `body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     margin: 0;
-    padding: 2rem;
+    padding: 0;
     background-color: #f3f4f6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.page-header {
+    background: #2563eb;
+    color: white;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.page-header nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    gap: 2rem;
+}
+
+.page-header a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.page-header a:hover {
+    text-decoration: underline;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 250px;
+    gap: 2rem;
 }
 
 .container {
-    max-width: 800px;
-    margin: 0 auto;
     background: white;
     padding: 2rem;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     text-align: center;
+}
+
+.sidebar {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: fit-content;
+}
+
+.sidebar h3 {
+    margin-top: 0;
+    color: #2563eb;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar li {
+    margin: 0.5rem 0;
+}
+
+.sidebar a {
+    color: #374151;
+    text-decoration: none;
+    display: block;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.sidebar a:hover {
+    background-color: #f3f4f6;
+    color: #2563eb;
+}
+
+.page-footer {
+    background: #1f2937;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+    margin-top: auto;
 }
 
 h1 {
