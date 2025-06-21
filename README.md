@@ -14,6 +14,7 @@ Zyte SSR is a simple, fast, and modern server-side rendering framework for Bun. 
 - 🟦 **TypeScript-first**: write both server and client code in TS
 - 🧩 **Per-component client code**: colocate `.client.ts` files for interactivity
 - 🗂 **File-based routing**: routes are just files in `src/routes/`
+- 🧩 **Reusable elements**: create custom components with exported functions
 - 🛠 **Zero config**: no webpack, no babel, no fuss
 - 🧹 **No runtime dependencies** (except esbuild for dev/build)
 
@@ -43,26 +44,162 @@ bun run start
 
 ---
 
-## Example Project Structure
+## Project Structure
+
+### Required Framework Directories
 
 ```
 my-app/
   src/
-    app/
-      app.ts           # Main app SSR component
-      app.html         # App HTML template
-      app.css          # App styles
-      app.client.ts    # Client-side interactivity for app
-    routes/
-      counter/
-        counter.ts         # SSR component for /counter
-        counter.html       # HTML template for /counter
-        counter.css        # Styles for /counter
-        counter.client.ts  # Client-side code for /counter
-    index.ts           # SSR entrypoint
-  dist/                # Built output (auto-generated)
+    app/                    # REQUIRED - Root route (/)
+    │   ├── app.ts         # REQUIRED - Main component
+    │   ├── app.html       # REQUIRED - HTML template
+    │   ├── app.css        # Optional - App styles
+    │   └── app.client.ts  # Optional - Client-side code
+    │
+    routes/                 # REQUIRED - All other routes
+    │   ├── counter/
+    │   │   ├── counter.ts         # SSR component for /counter
+    │   │   ├── counter.html       # HTML template for /counter
+    │   │   ├── counter.css        # Styles for /counter
+    │   │   └── counter.client.ts  # Client-side code for /counter
+    │   └── about/
+    │       ├── about.ts
+    │       └── about.html
+    │
+    components/             # OPTIONAL - Reusable elements (can be anywhere)
+    │   ├── Button.ts
+    │   ├── Card.ts
+    │   └── Layout.ts
+    │
+    layouts/                # OPTIONAL - Layout components
+    │   ├── Header.ts
+    │   └── Footer.ts
+    │
+    utils/                  # OPTIONAL - Utility components
+    │   └── helpers.ts
+    │
+    index.ts                # SSR entrypoint
+  │
+  dist/                     # Built output (auto-generated)
   package.json
   tsconfig.json
+```
+
+**Framework Requirements:**
+- **`src/app/`**: Required and hardcoded - handles the root route (`/`)
+- **`src/routes/`**: Required but configurable - contains all route components
+- **Other directories**: Optional - organize reusable elements as you prefer
+
+---
+
+## Reusable Elements
+
+Zyte SSR supports reusable elements through exported TypeScript functions. You can create custom components and use them across your application.
+
+### Creating Reusable Elements
+
+#### 1. **Shared Components Directory** (Recommended)
+```typescript
+// src/components/Button.ts
+export function Button(text: string, className: string = 'btn') {
+  return `<button class="${className}">${text}</button>`;
+}
+
+export function PrimaryButton(text: string) {
+  return Button(text, 'btn btn-primary');
+}
+
+export function SecondaryButton(text: string) {
+  return Button(text, 'btn btn-secondary');
+}
+```
+
+#### 2. **Using Reusable Elements in Routes**
+```typescript
+// src/routes/home/home.ts
+import { PrimaryButton, SecondaryButton } from '../../components/Button';
+
+export function homePage() {
+  return `
+  <div class="container">
+    <h1>Welcome to Our App</h1>
+    <div class="actions">
+      ${PrimaryButton('Get Started')}
+      ${SecondaryButton('Learn More')}
+    </div>
+  </div>
+  `;
+}
+```
+
+#### 3. **Complex Reusable Elements with Parameters**
+```typescript
+// src/components/Card.ts
+export function Card(title: string, content: string, imageUrl?: string) {
+  const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="${title}" class="card-image">` : '';
+  
+  return `
+  <div class="card">
+    ${imageHtml}
+    <div class="card-content">
+      <h3 class="card-title">${title}</h3>
+      <p class="card-text">${content}</p>
+    </div>
+  </div>
+  `;
+}
+
+export function ProductCard(name: string, price: number, description: string) {
+  return Card(name, `${description}<br><strong>$${price}</strong>`);
+}
+
+export function BlogCard(title: string, excerpt: string, author: string, date: string) {
+  return Card(title, `${excerpt}<br><small>By ${author} on ${date}</small>`);
+}
+```
+
+#### 4. **Layout Components**
+```typescript
+// src/layouts/Header.ts
+export function Header(title: string, navItems: string[] = []) {
+  const navHtml = navItems.map(item => `<a href="/${item.toLowerCase()}">${item}</a>`).join('');
+  
+  return `
+  <header class="site-header">
+    <h1>${title}</h1>
+    <nav>${navHtml}</nav>
+  </header>
+  `;
+}
+
+// src/layouts/Footer.ts
+export function Footer() {
+  return `
+  <footer class="site-footer">
+    <p>&copy; 2024 Your Company. Built with Zyte SSR.</p>
+  </footer>
+  `;
+}
+```
+
+### Where to Place Reusable Elements
+
+You can place reusable elements **anywhere** in your project:
+
+- `src/components/` - Recommended for UI components
+- `src/layouts/` - For layout components
+- `src/utils/` - For utility functions
+- `src/shared/` - For shared components
+- Inside route directories - For route-specific components
+- Any other directory structure you prefer
+
+The framework doesn't enforce any specific directory structure for reusable elements - use standard ES6 imports:
+
+```typescript
+import { Button } from './components/Button';
+import { Card } from '../shared/Card';
+import { Header } from '../../layouts/Header';
 ```
 
 ---
@@ -71,12 +208,14 @@ my-app/
 
 **src/routes/counter/counter.ts**
 ```ts
+import { Button } from '../../components/Button';
+
 export function counterPage() {
   return `
   <div class="container">
     <h1>Counter Example</h1>
     <p>Current count: <span id="count">0</span></p>
-    <button id="increment">Increment</button>
+    ${Button('Increment', 'btn-primary')}
   </div>
   `;
 }
@@ -89,14 +228,6 @@ export function header() {
       <a href="/counter">Counter</a>
     </nav>
   </header>
-  `;
-}
-
-export function footer() {
-  return `
-  <footer class="page-footer">
-    <p>&copy; 2024 Zyte SSR Framework</p>
-  </footer>
   `;
 }
 ```
@@ -116,8 +247,6 @@ export function footer() {
   <main class="main-content">
     {{ counterPage() }}
   </main>
-  
-  {{ footer() }}
 </body>
 </html>
 ```
@@ -169,6 +298,17 @@ export const pageData = {
 </body>
 </html>
 ```
+
+### Template Expression Support
+
+The framework supports various template expressions:
+
+- **Function calls:** `{{ functionName() }}`, `{{ functionName('arg') }}`, `{{ functionName(arg1, arg2) }}`
+- **Property access:** `{{ propertyName }}`, `{{ data.title }}`
+- **Query parameters:** `{{ query.paramName }}`, `{{ query.search || 'default' }}`
+- **Route parameters:** `{{ params.paramName }}`
+- **Headers:** `{{ headers.headerName }}`
+- **Async functions:** All function calls are awaited
 
 ### Query Parameters Support
 
