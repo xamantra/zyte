@@ -338,16 +338,72 @@ export class ZyteSSR {
               // Update the page content
               const parser = new DOMParser();
               const newDoc = parser.parseFromString(html, 'text/html');
-              const newContent = newDoc.querySelector('body');
               
-              if (newContent) {
-                document.body.innerHTML = newContent.innerHTML;
+              // Update head content (CSS, meta tags, etc.)
+              const newHead = newDoc.querySelector('head');
+              const currentHead = document.head;
+              
+              if (newHead) {
+                // Remove existing CSS links and scripts
+                const existingLinks = currentHead.querySelectorAll('link[rel="stylesheet"]');
+                const existingScripts = currentHead.querySelectorAll('script[src]');
                 
-                // Update title
-                const newTitle = newDoc.querySelector('title');
+                existingLinks.forEach(link => link.remove());
+                existingScripts.forEach(script => script.remove());
+                
+                // Add new CSS links and meta tags
+                const newLinks = newHead.querySelectorAll('link[rel="stylesheet"]');
+                const newMeta = newHead.querySelectorAll('meta');
+                const newTitle = newHead.querySelector('title');
+                
+                newLinks.forEach(link => {
+                  const newLink = document.createElement('link');
+                  newLink.rel = link.rel;
+                  newLink.href = link.href;
+                  if (link.type) newLink.type = link.type;
+                  currentHead.appendChild(newLink);
+                });
+                
+                newMeta.forEach(meta => {
+                  const newMeta = document.createElement('meta');
+                  if (meta.name) newMeta.name = meta.name;
+                  if (meta.content) newMeta.content = meta.content;
+                  if (meta.property) newMeta.property = meta.property;
+                  currentHead.appendChild(newMeta);
+                });
+                
                 if (newTitle) {
                   document.title = newTitle.textContent;
                 }
+              }
+              
+              // Update body content
+              const newContent = newDoc.querySelector('body');
+              
+              if (newContent) {
+                // Remove existing scripts from body
+                const existingBodyScripts = document.body.querySelectorAll('script[src]');
+                existingBodyScripts.forEach(script => script.remove());
+                
+                // Update body content
+                document.body.innerHTML = newContent.innerHTML;
+                
+                // Add new scripts from the body
+                const newBodyScripts = newContent.querySelectorAll('script[src]');
+                newBodyScripts.forEach(script => {
+                  const newScript = document.createElement('script');
+                  newScript.src = script.src;
+                  if (script.type) newScript.type = script.type;
+                  document.body.appendChild(newScript);
+                });
+                
+                // Execute any inline scripts
+                const inlineScripts = newContent.querySelectorAll('script:not([src])');
+                inlineScripts.forEach(script => {
+                  const newScript = document.createElement('script');
+                  newScript.textContent = script.textContent;
+                  document.body.appendChild(newScript);
+                });
                 
                 // Update URL
                 if (pushState) {
@@ -357,6 +413,8 @@ export class ZyteSSR {
             }
           } catch (error) {
             console.error('Navigation error:', error);
+            // Fallback to full page reload on error
+            window.location.href = url;
           }
         }
 

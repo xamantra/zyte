@@ -320,4 +320,45 @@ export function showPage(page: string) {
     expect(html).toContain('<div>Page: 5</div>');
     cleanupAll();
   });
+
+  it('injects client-side navigation script for HTML requests', async () => {
+    // Setup app files
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `export function appPage() { return '<h1>Home</h1>'; }`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>\n<html><head></head><body>{{ appPage() }}</body></html>`);
+    
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const context = {
+      params: {},
+      query: {},
+      headers: { accept: 'text/html' }
+    };
+    const html = await ssr.render('/', context);
+    
+    // Should contain the client-side navigation script
+    expect(html).toContain('Zyte SSR Interactivity Script');
+    expect(html).toContain('navigateTo');
+    expect(html).toContain('window.zyteNavigate');
+    cleanupAll();
+  });
+
+  it('does not inject client-side navigation script for non-HTML requests', async () => {
+    // Setup app files
+    if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
+    writeFileSync(APP_TS, `export function appPage() { return '<h1>Home</h1>'; }`);
+    writeFileSync(APP_HTML, `<!DOCTYPE html>\n<html><head></head><body>{{ appPage() }}</body></html>`);
+    
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const context = {
+      params: {},
+      query: {},
+      headers: { accept: 'application/json' }
+    };
+    const html = await ssr.render('/', context);
+    
+    // Should not contain the client-side navigation script
+    expect(html).not.toContain('Zyte SSR Interactivity Script');
+    expect(html).not.toContain('navigateTo');
+    cleanupAll();
+  });
 }); 

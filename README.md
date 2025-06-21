@@ -24,6 +24,8 @@ Zyte SSR is a simple, fast, and modern server-side rendering framework for Bun. 
 ```sh
 # Install Bun (if you haven't)
 bun install -g bun
+# Install Zyte CLI globally
+bun install -g zyte
 
 # Create a new Zyte SSR project
 zyte new my-app
