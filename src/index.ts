@@ -178,7 +178,7 @@ export class ZyteSSR {
             const args = argsStr ? this.parseTemplateArgs(argsStr, context) : [];
             // Pass context as the last argument to functions
             const value = await func(...args, context);
-            result += value;
+            result += (value ?? ''); // Coalesce null/undefined to empty string
           } else {
             console.warn(`Function ${funcName} not found in component`);
             result += match[0];
@@ -186,7 +186,7 @@ export class ZyteSSR {
         } else {
           // Handle simple property access or expressions
           const value = this.evaluateExpression(expression, component, context);
-          result += value;
+          result += (value ?? ''); // Coalesce null/undefined to empty string
         }
       } catch (error) {
         console.error(`Error processing template expression ${expression}:`, error);
@@ -239,11 +239,12 @@ export class ZyteSSR {
       const parts = expression.split('||').map(part => part.trim());
       for (const part of parts) {
         const value = this.evaluateSingleExpression(part, component, context);
-        if (value !== '' && value !== null && value !== undefined) {
+        if (value) { // Use JavaScript-like truthiness
           return value;
         }
       }
-      return parts[parts.length - 1]; // Return the last part as fallback
+      // If all parts are falsy, return the evaluated value of the last part.
+      return this.evaluateSingleExpression(parts[parts.length - 1], component, context);
     }
     
     return this.evaluateSingleExpression(expression, component, context);
@@ -253,17 +254,17 @@ export class ZyteSSR {
     // Handle context access first (query, params, headers)
     if (expression.startsWith('query.')) {
       const key = expression.slice(6); // Remove 'query.'
-      return context.query[key] || '';
+      return context.query[key];
     }
     
     if (expression.startsWith('params.')) {
       const key = expression.slice(7); // Remove 'params.'
-      return context.params[key] || '';
+      return context.params[key];
     }
     
     if (expression.startsWith('headers.')) {
       const key = expression.slice(8); // Remove 'headers.'
-      return context.headers[key] || '';
+      return context.headers[key];
     }
     
     // Handle string literals
@@ -285,19 +286,19 @@ export class ZyteSSR {
     if (expression === 'null') return null;
     if (expression === 'undefined') return undefined;
     
-    // Handle simple property access
+    // Handle simple property access from component
     if (component[expression] !== undefined) {
       return component[expression];
     }
     
-    // Handle nested property access (e.g., data.title)
+    // Handle nested property access (e.g., data.title) from component
     const parts = expression.split('.');
     let value = component;
     for (const part of parts) {
       if (value && typeof value === 'object' && value[part] !== undefined) {
         value = value[part];
       } else {
-        return expression; // Return original expression if not found
+        return undefined; // Not found
       }
     }
     return value;

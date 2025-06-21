@@ -983,7 +983,7 @@ async function startDevServer() {
       }
     })();
     // Directly import and call startServer from the framework
-    const { startServer } = await import('zyte/server');
+    const { startServer } = await import('./server.js');
     startServer();
   } catch (error) {
     console.error('Failed to start development server:', error);
