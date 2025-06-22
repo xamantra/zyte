@@ -9,6 +9,31 @@ export interface ServerOptions {
   onStart?: (server: { port: number; host: string; url: string }) => void | Promise<void>;
   cacheMaxAge?: number; // in milliseconds
   cacheEnabled?: boolean;
+  sitemap?: {
+    enabled?: boolean; // Default: true
+    baseUrl?: string; // Auto-detected if not provided
+    excludePaths?: string[]; // Paths to exclude from sitemap
+    customUrls?: Array<{
+      url: string;
+      lastmod?: string;
+      changefreq?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
+      priority?: number; // 0.0 to 1.0
+    }>;
+    defaultChangefreq?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
+    defaultPriority?: number; // 0.0 to 1.0
+  };
+  robots?: {
+    enabled?: boolean; // Default: true
+    baseUrl?: string; // Auto-detected if not provided
+    userAgents?: Array<{
+      name: string; // '*' for all robots, or specific bot name
+      allow?: string[]; // Paths to allow
+      disallow?: string[]; // Paths to disallow
+      crawlDelay?: number; // Crawl delay in seconds
+    }>;
+    sitemap?: boolean; // Include sitemap reference (default: true)
+    customRules?: string[]; // Custom robots.txt rules
+  };
 }
 
 function injectClientScript(path: string, html: string): string {
@@ -116,6 +141,136 @@ export async function startServer(options: ServerOptions = {}) {
           'Pragma': 'no-cache',
           'Expires': '0'
         }
+      });
+    }
+
+    // Dynamic sitemap.xml generation
+    if (path === '/sitemap.xml') {
+      const sitemapConfig = finalOptions.sitemap || {};
+      const sitemapEnabled = sitemapConfig.enabled !== false; // Default to true
+      
+      if (!sitemapEnabled) {
+        return new Response('Sitemap disabled', { status: 404 });
+      }
+      
+      const baseUrl = sitemapConfig.baseUrl || `${url.protocol}//${url.host}`;
+      const routes = ssr.getRoutesMap();
+      const currentDate = new Date().toISOString();
+      const excludePaths = sitemapConfig.excludePaths || [];
+      const defaultChangefreq = sitemapConfig.defaultChangefreq || 'weekly';
+      const defaultPriority = sitemapConfig.defaultPriority || 0.8;
+      
+      let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+      
+      // Add custom URLs first
+      if (sitemapConfig.customUrls) {
+        for (const customUrl of sitemapConfig.customUrls) {
+          sitemap += `
+  <url>
+    <loc>${customUrl.url.startsWith('http') ? customUrl.url : `${baseUrl}${customUrl.url.startsWith('/') ? '' : '/'}${customUrl.url}`}</loc>
+    <lastmod>${customUrl.lastmod || currentDate}</lastmod>
+    <changefreq>${customUrl.changefreq || defaultChangefreq}</changefreq>
+    <priority>${customUrl.priority || defaultPriority}</priority>
+  </url>`;
+        }
+      }
+      
+      // Add root URL
+      sitemap += `
+  <url>
+    <loc>${baseUrl}/</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>`;
+      
+      // Add all discovered routes (excluding specified paths)
+      for (const [routePath, routeConfig] of routes) {
+        if (excludePaths.includes(routePath)) continue;
+        
+        sitemap += `
+  <url>
+    <loc>${baseUrl}/${routePath}</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>${defaultChangefreq}</changefreq>
+    <priority>${defaultPriority}</priority>
+  </url>`;
+      }
+      
+      sitemap += `
+</urlset>`;
+      
+      return new Response(sitemap, {
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        },
+      });
+    }
+
+    // Dynamic robots.txt generation
+    if (path === '/robots.txt') {
+      const robotsConfig = finalOptions.robots || {};
+      const robotsEnabled = robotsConfig.enabled !== false; // Default to true
+      
+      if (!robotsEnabled) {
+        return new Response('Robots.txt disabled', { status: 404 });
+      }
+      
+      const baseUrl = robotsConfig.baseUrl || `${url.protocol}//${url.host}`;
+      const includeSitemap = robotsConfig.sitemap !== false; // Default to true
+      
+      let robots = '';
+      
+      // Add custom rules first
+      if (robotsConfig.customRules) {
+        robots += robotsConfig.customRules.join('\n') + '\n\n';
+      }
+      
+      // Add user agent rules
+      if (robotsConfig.userAgents && robotsConfig.userAgents.length > 0) {
+        for (const userAgent of robotsConfig.userAgents) {
+          robots += `User-agent: ${userAgent.name}\n`;
+          
+          if (userAgent.allow && userAgent.allow.length > 0) {
+            for (const path of userAgent.allow) {
+              robots += `Allow: ${path}\n`;
+            }
+          }
+          
+          if (userAgent.disallow && userAgent.disallow.length > 0) {
+            for (const path of userAgent.disallow) {
+              robots += `Disallow: ${path}\n`;
+            }
+          }
+          
+          if (userAgent.crawlDelay) {
+            robots += `Crawl-delay: ${userAgent.crawlDelay}\n`;
+          }
+          
+          robots += '\n';
+        }
+      } else {
+        // Default robots.txt content
+        robots += `User-agent: *\n`;
+        robots += `Allow: /\n`;
+        robots += `Disallow: /admin/\n`;
+        robots += `Disallow: /private/\n`;
+        robots += `Disallow: /__zyte_keepalive\n`;
+        robots += `\n`;
+      }
+      
+      // Add sitemap reference
+      if (includeSitemap) {
+        robots += `Sitemap: ${baseUrl}/sitemap.xml\n`;
+      }
+      
+      return new Response(robots, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        },
       });
     }
 

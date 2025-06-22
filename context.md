@@ -47,6 +47,39 @@ The framework serves any file that doesn't have a `.ts` or `.html` extension as 
 
 **Directory Safety:** The system includes checks to ensure only actual files (not directories) are served, preventing `EISDIR` errors when users request paths with trailing slashes.
 
+### Dynamic Sitemap Generation
+The framework automatically generates a dynamic `sitemap.xml` at `/sitemap.xml` based on discovered routes. This feature:
+- **Route Discovery**: Automatically includes all routes from the `src/routes/` directory
+- **Root Page**: Always includes the home page (`/`) with highest priority (1.0)
+- **Configurable**: Supports custom URLs, excluded paths, and SEO parameters via `server.config.ts`
+- **SEO Optimized**: Follows sitemap protocol standards with proper XML formatting
+- **Caching**: Sitemap is cached for 1 hour for performance optimization
+- **Auto-detection**: Automatically detects the site's base URL from the request
+
+**Configuration Options:**
+- `enabled`: Enable/disable sitemap generation (default: true)
+- `baseUrl`: Custom base URL (auto-detected if not provided)
+- `excludePaths`: Array of route paths to exclude from sitemap
+- `customUrls`: Array of custom URLs with specific SEO parameters
+- `defaultChangefreq`: Default change frequency for discovered routes
+- `defaultPriority`: Default priority for discovered routes (0.0 to 1.0)
+
+### Dynamic Robots.txt Generation
+The framework automatically generates a dynamic `robots.txt` at `/robots.txt` with configurable rules for search engine crawlers. This feature:
+- **Default Rules**: Provides sensible default rules for all robots (allow `/`, disallow `/admin/`, `/private/`, `/__zyte_keepalive`)
+- **Sitemap Integration**: Automatically includes reference to the generated sitemap
+- **Configurable**: Supports custom rules for different user agents with allow/disallow paths and crawl delays
+- **SEO Optimized**: Follows robots.txt protocol standards with proper formatting
+- **Caching**: Robots.txt is cached for 1 hour for performance optimization
+- **Auto-detection**: Automatically detects the site's base URL from the request
+
+**Configuration Options:**
+- `enabled`: Enable/disable robots.txt generation (default: true)
+- `baseUrl`: Custom base URL (auto-detected if not provided)
+- `userAgents`: Array of user agent configurations with allow/disallow rules and crawl delays
+- `sitemap`: Include sitemap reference (default: true)
+- `customRules`: Array of custom robots.txt rules as strings
+
 ### In-Memory Caching
 The framework implements a configurable in-memory caching layer to reduce render times for frequently accessed pages. The cache is a `Map` stored in `src/server.ts`.
 - **Cache Key**: The URL path of the incoming request.
@@ -178,8 +211,10 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
     - **Request Handler (`fetch` method of `Bun.serve`):** This is the core request-response pipeline.
         1. **Caching:** Checks if a valid, non-stale cached response exists for the request path. If so, serves it immediately.
         2. **Keep-Alive:** Responds to `/__zyte_keepalive` with a JSON status object.
-        3. **Static Assets:** If the request URL path doesn't end in `.ts` or `.html`, it attempts to serve a physical file from `dist/client/`, `src/app/`, or `src/routes/`. The system includes directory safety checks to prevent `EISDIR` errors.
-        4. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
+        3. **Dynamic Sitemap:** Responds to `/sitemap.xml` with a dynamically generated XML sitemap based on discovered routes and configuration options.
+        4. **Dynamic Robots.txt:** Responds to `/robots.txt` with a dynamically generated robots.txt file based on configuration options and user agent rules.
+        5. **Static Assets:** If the request URL path doesn't end in `.ts` or `.html`, it attempts to serve a physical file from `dist/client/`, `src/app/`, or `src/routes/`. The system includes directory safety checks to prevent `EISDIR` errors.
+        6. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
     - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it calls a dedicated `injectClientScript` helper to check if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
     - **Image Lazy Loading:** After script injection, the final HTML is passed through the `injectLazyLoading` function, which automatically adds `loading="lazy"` to all `<img>` tags that don't already have a loading attribute. This is an automatic, non-configurable performance enhancement.
     - **Cache Population:** After a page is rendered, if the request is cacheable (`GET` with no query parameters) and caching is enabled, the final HTML is stored in the `ssrCache` with a timestamp.
@@ -255,12 +290,20 @@ This section provides instructions for an AI on how to modify the framework.
 - **To Modify Static File Serving:**
     - The logic resides in the `fetch` handler in `src/server.ts`. The current implementation uses a negative regex pattern (`!/\.(ts|html)$/`) to serve any file that doesn't have `.ts` or `.html` extensions. To modify this behavior, update the regex pattern and the file resolution logic.
 
+- **To Modify Sitemap Generation:**
+    - The sitemap generation logic is in the request handler in `src/server.ts`. It uses the `getRoutesMap()` method from the SSR instance to discover routes and applies configuration from `server.config.ts`.
+
+- **To Modify Robots.txt Generation:**
+    - The robots.txt generation logic is in the request handler in `src/server.ts`. It applies configuration from `server.config.ts` and can include custom rules, user agent specific configurations, and sitemap references.
+
 - **To Update Scaffolding Templates:**
     - The file contents for `zyte new` and `zyte add-route` are hardcoded as multi-line string literals inside the `createNewProject` and `addRoute` functions in `src/cli.ts`. Modify these strings directly to change the generated code.
 
 ---
 
 ## 8. Recent Improvements & Rationale
+- **Dynamic Robots.txt Generation**: Added automatic robots.txt generation at `/robots.txt` with configurable rules for search engine crawlers. This includes default rules, custom user agent configurations, and automatic sitemap integration, eliminating the need for manual robots.txt maintenance.
+- **Dynamic Sitemap Generation**: Added automatic sitemap.xml generation at `/sitemap.xml` that dynamically includes all discovered routes with configurable SEO parameters. This eliminates the need for manual sitemap maintenance and ensures search engines can discover all pages automatically.
 - **Comprehensive Static File Serving**: Enhanced the static file serving system to automatically serve any file that doesn't have a `.ts` or `.html` extension. This eliminates the need to maintain a list of supported file extensions and provides future-proof support for any file type users might need. The system includes directory safety checks to prevent `EISDIR` errors when users request paths with trailing slashes.
 - **In-Memory Caching with Pre-warming**: Added a configurable, in-memory caching layer to dramatically improve performance for repeated requests. The cache is pre-warmed at server startup to ensure even the first page load is fast. This reduces server load and latency.
 - **Gzip Compression**: Implemented automatic gzip compression for all server responses where the client supports it. This is done after caching to reduce bandwidth without caching compressed content, providing a balance of speed and efficiency.

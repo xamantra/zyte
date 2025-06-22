@@ -462,10 +462,47 @@ const config: ServerOptions = {
   // Max cache age in milliseconds (default: 300000, i.e., 5 minutes)
   cacheMaxAge: 300000,
 
+  // Sitemap configuration (optional)
+  sitemap: {
+    enabled: true, // Default: true
+    baseUrl: 'https://example.com', // Auto-detected if not provided
+    excludePaths: ['admin', 'private'], // Paths to exclude
+    customUrls: [
+      {
+        url: '/special-page',
+        changefreq: 'daily',
+        priority: 0.9
+      }
+    ],
+    defaultChangefreq: 'weekly', // Default: 'weekly'
+    defaultPriority: 0.8 // Default: 0.8
+  },
+
+  // Robots.txt configuration (optional)
+  robots: {
+    enabled: true, // Default: true
+    baseUrl: 'https://example.com', // Auto-detected if not provided
+    userAgents: [
+      {
+        name: '*', // All robots
+        allow: ['/'],
+        disallow: ['/admin/', '/private/', '/__zyte_keepalive'],
+        crawlDelay: 1
+      }
+    ],
+    sitemap: true, // Include sitemap reference (default: true)
+    customRules: [
+      '# Custom robots.txt rules',
+      'Disallow: /temp/'
+    ]
+  },
+
   // Callback when server starts (optional)
   onStart: async ({ port, host, url }) => {
     console.log(`🎉 Server is ready at ${url}`);
     console.log(`📊 Keep-alive endpoint: ${url}/__zyte_keepalive`);
+    console.log(`🗺️ Sitemap available at: ${url}/sitemap.xml`);
+    console.log(`🤖 Robots.txt available at: ${url}/robots.txt`);
     
     // You can perform any custom initialization here
     // For example:
@@ -704,5 +741,204 @@ cp logo.png src/routes/about/logo.png
 ```
 
 The files will be automatically served with the correct MIME types and no additional configuration required.
+
+---
+
+## Dynamic Sitemap Generation
+
+Zyte SSR automatically generates a dynamic `sitemap.xml` at `/sitemap.xml` based on your discovered routes. This helps search engines discover and index your pages automatically.
+
+### Automatic Features
+
+- **Route Discovery**: Automatically includes all routes from `src/routes/`
+- **Root Page**: Always includes the home page (`/`) with highest priority
+- **Auto-detection**: Automatically detects your site's base URL
+- **Caching**: Sitemap is cached for 1 hour for performance
+- **SEO Optimized**: Follows sitemap protocol standards
+
+### Configuration Options
+
+You can customize the sitemap generation in your `server.config.ts`:
+
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  sitemap: {
+    // Enable/disable sitemap generation (default: true)
+    enabled: true,
+    
+    // Custom base URL (auto-detected if not provided)
+    baseUrl: 'https://example.com',
+    
+    // Routes to exclude from sitemap
+    excludePaths: ['admin', 'private', 'temp'],
+    
+    // Custom URLs to include
+    customUrls: [
+      {
+        url: '/special-page',
+        changefreq: 'daily',
+        priority: 0.9
+      },
+      {
+        url: 'https://external-site.com/page',
+        lastmod: '2024-01-01T00:00:00.000Z',
+        changefreq: 'monthly',
+        priority: 0.5
+      }
+    ],
+    
+    // Default settings for discovered routes
+    defaultChangefreq: 'weekly', // 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
+    defaultPriority: 0.8 // 0.0 to 1.0
+  }
+};
+
+export default config;
+```
+
+### Example Generated Sitemap
+
+For a site with routes `/about`, `/blog`, and `/contact`, the generated sitemap would look like:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/</loc>
+    <lastmod>2024-01-15T10:30:00.000Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://example.com/about</loc>
+    <lastmod>2024-01-15T10:30:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://example.com/blog</loc>
+    <lastmod>2024-01-15T10:30:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://example.com/contact</loc>
+    <lastmod>2024-01-15T10:30:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+```
+
+### Usage
+
+1. **Automatic**: The sitemap is automatically available at `/sitemap.xml`
+2. **Search Engines**: Submit the URL to Google Search Console, Bing Webmaster Tools, etc.
+3. **robots.txt**: Add `Sitemap: https://example.com/sitemap.xml` to your robots.txt
+
+---
+
+## Dynamic Robots.txt Generation
+
+Zyte SSR automatically generates a dynamic `robots.txt` at `/robots.txt` with configurable rules for search engine crawlers. This helps control how search engines index your site.
+
+### Automatic Features
+
+- **Default Rules**: Provides sensible default rules for all robots
+- **Sitemap Integration**: Automatically includes reference to your sitemap
+- **Configurable**: Customize rules for different user agents
+- **Caching**: Robots.txt is cached for 1 hour for performance
+- **SEO Optimized**: Follows robots.txt protocol standards
+
+### Configuration Options
+
+You can customize the robots.txt generation in your `server.config.ts`:
+
+```typescript
+import type { ServerOptions } from 'zyte/server';
+
+const config: ServerOptions = {
+  robots: {
+    // Enable/disable robots.txt generation (default: true)
+    enabled: true,
+    
+    // Custom base URL (auto-detected if not provided)
+    baseUrl: 'https://example.com',
+    
+    // User agent specific rules
+    userAgents: [
+      {
+        name: '*', // All robots
+        allow: ['/'],
+        disallow: ['/admin/', '/private/', '/__zyte_keepalive'],
+        crawlDelay: 1
+      },
+      {
+        name: 'Googlebot',
+        allow: ['/'],
+        disallow: ['/admin/'],
+        crawlDelay: 0.5
+      }
+    ],
+    
+    // Include sitemap reference (default: true)
+    sitemap: true,
+    
+    // Custom robots.txt rules
+    customRules: [
+      '# Custom robots.txt rules',
+      'Disallow: /temp/',
+      'Disallow: /draft/'
+    ]
+  }
+};
+
+export default config;
+```
+
+### Example Generated Robots.txt
+
+With default configuration, the generated robots.txt would look like:
+
+```txt
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+Disallow: /__zyte_keepalive
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+With custom configuration:
+
+```txt
+# Custom robots.txt rules
+Disallow: /temp/
+Disallow: /draft/
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+Disallow: /__zyte_keepalive
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Crawl-delay: 0.5
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+### Usage
+
+1. **Automatic**: The robots.txt is automatically available at `/robots.txt`
+2. **Search Engines**: Search engines will automatically discover and follow the rules
+3. **Testing**: Test your robots.txt with Google Search Console's robots.txt tester
+4. **Integration**: Works seamlessly with the dynamic sitemap generation
 
 --- 
