@@ -31,6 +31,10 @@ export class ZyteSSR {
     this.discoverRoutes();
   }
 
+  public getRoutesMap(): Map<string, RouteConfig> {
+    return this.routes;
+  }
+
   private discoverRoutes() {
     const routesDir = join(this.baseDir, this.routesDir);
     if (!existsSync(routesDir)) return;

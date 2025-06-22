@@ -15,6 +15,7 @@ Zyte SSR is a simple, fast, and modern server-side rendering framework for Bun. 
 - 🧩 **Per-component client code**: colocate `.client.ts` files for interactivity
 - 🗂 **File-based routing**: routes are just files in `src/routes/`
 - 🧩 **Reusable elements**: create custom components with exported functions
+- 🚀 **In-memory Caching**: Automatic in-memory caching for routes to accelerate response times, with pre-warming at server startup.
 - 🛠 **Zero config**: no webpack, no babel, no fuss
 - 🧹 **No runtime dependencies** (except esbuild for dev/build)
 
@@ -453,6 +454,12 @@ const config: ServerOptions = {
   // Custom port (optional)
   port: 3000,
   
+  // Enable or disable SSR caching (default: true)
+  cacheEnabled: true,
+  
+  // Max cache age in milliseconds (default: 300000, i.e., 5 minutes)
+  cacheMaxAge: 300000,
+
   // Callback when server starts (optional)
   onStart: async ({ port, host, url }) => {
     console.log(`🎉 Server is ready at ${url}`);
@@ -469,6 +476,17 @@ const config: ServerOptions = {
 
 export default config;
 ```
+
+### Caching
+
+Zyte SSR includes an in-memory caching system to improve performance.
+
+- **Enabled by Default**: Caching is on by default to accelerate page loads.
+- **Cache Pre-warming**: On server startup, Zyte pre-renders all static routes (routes without parameters) and stores them in the cache. This ensures that the first visit to any page is served instantly from memory.
+- **What is Cached**: It caches the final HTML of `GET` requests for routes that do not have any query parameters.
+- **Configuration**: You can configure caching via `server.config.ts`:
+    - `cacheEnabled`: Set to `false` to disable caching entirely.
+    - `cacheMaxAge`: Sets the cache expiration time in milliseconds. The default is 5 minutes.
 
 ### Keep-Alive Endpoint
 

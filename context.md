@@ -29,6 +29,15 @@ Interactivity is achieved by creating a `.client.ts` file alongside its correspo
 - **CSS**: A `.css` file with the same basename as a component (e.g., `about.css` for `about.ts`) is automatically discovered by the `render` method in `src/index.ts`. If found, a `<link rel="stylesheet">` tag pointing to the corresponding asset path is injected into the HTML `<head>`.
 - **Client Scripts**: Bundled `.client.js` files are injected as `<script type="module">` tags just before the closing `</body>` tag by the request handler in `src/server.ts`.
 
+### In-Memory Caching
+The framework implements a configurable in-memory caching layer to reduce render times for frequently accessed pages. The cache is a `Map` stored in `src/server.ts`.
+- **Cache Key**: The URL path of the incoming request.
+- **Cache Value**: An object containing the rendered HTML `content` and a `timestamp`.
+- **Caching Strategy**: Caching is applied only to `GET` requests with no query parameters.
+- **Cache Invalidation**: A `cacheMaxAge` setting (default: 5 minutes) is used to check for and evict stale entries.
+- **Cache Pre-warming**: At server startup, the framework iterates through all discovered routes, renders them with an empty context, and populates the cache. This ensures initial page loads are served from memory.
+- **Configuration**: Caching behavior can be controlled via `cacheEnabled` and `cacheMaxAge` options in `server.config.ts`.
+
 ---
 
 ## 3. Project Structure
@@ -140,18 +149,21 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
 #### `src/server.ts`
 - **Purpose:** Defines the Bun web server and handles all incoming HTTP requests.
 - **Key Internals:**
-    - `startServer(options)`: The main export. It initializes the `ZyteSSR` engine from `src/index.ts`, loads an optional `server.config.ts`, and starts the Bun HTTP server (`Bun.serve`).
-    - **Configuration Loading:** It attempts to `import()` `process.cwd() + '/server.config.ts'` or `process.cwd() + '/src/server.config.ts'` to get user-defined options like `port` or an `onStart` callback.
+    - `startServer(options)`: The main export. It initializes the `ZyteSSR` engine from `src/index.ts`, loads an optional `server.config.ts`, and starts the Bun HTTP server (`Bun.serve`). It also handles cache pre-warming by iterating through all discovered routes from the `ZyteSSR` instance, rendering them, and storing them in an in-memory cache (`ssrCache`).
+    - **Configuration Loading:** It attempts to `import()` `process.cwd() + '/server.config.ts'` or `process.cwd() + '/src/server.config.ts'` to get user-defined options like `port`, `cacheEnabled`, `cacheMaxAge` or an `onStart` callback.
     - **Request Handler (`fetch` method of `Bun.serve`):** This is the core request-response pipeline.
-        1. **Keep-Alive:** Responds to `/__zyte_keepalive` with a JSON status object.
-        2. **Static Assets:** If the request URL path matches a static file extension (e.g., `.css`, `.js`, `.png`), it attempts to serve a physical file from `dist/client/` or `src/`.
-        3. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
-    - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it checks if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
+        1. **Caching:** Checks if a valid, non-stale cached response exists for the request path. If so, serves it immediately.
+        2. **Keep-Alive:** Responds to `/__zyte_keepalive` with a JSON status object.
+        3. **Static Assets:** If the request URL path matches a static file extension (e.g., `.css`, `.js`, `.png`), it attempts to serve a physical file from `dist/client/` or `src/`.
+        4. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
+    - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it calls a dedicated `injectClientScript` helper to check if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
+    - **Cache Population:** After a page is rendered, if the request is cacheable (`GET` with no query parameters) and caching is enabled, the final HTML is stored in the `ssrCache` with a timestamp.
 
 #### `src/index.ts`
 - **Purpose:** The core SSR engine, responsible for route discovery, template processing, and rendering.
 - **`ZyteSSR` Class:**
     - `constructor()`: Initializes the route map by calling `discoverRoutes()`.
+    - `getRoutesMap()`: Exposes the internal `routes` map to allow other parts of the framework, like the server's cache warming mechanism, to access the list of discovered routes.
     - `discoverRoutes()`: Populates a `Map<string, string>` where keys are URL paths (`/about`) and values are the absolute paths to the corresponding component module (`.../src/routes/about/about.ts`). It uses the recursive helper `scanRoutesDirectory`.
     - `render(path, context)`: The primary method for rendering a page.
         1. Looks up the component module path from the route map. The root `/` is a special case mapped to `src/app/app.ts`.
@@ -164,6 +176,11 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
         - It parses the expression to determine if it's a function call (contains `(`) or a property access.
         - **Function Calls:** It extracts the function name and arguments. Arguments are parsed by `parseTemplateArgs` into their correct types (string, number, boolean, null). It then invokes the function from the `component` object, passing the `context` as the final argument. The result is `await`ed.
         - **Property/Expression Access:** It supports dot notation (`myObject.property`) and a simple `||` for default values. It attempts to resolve the expression against properties on the `component` object first, then the `context` object (`query`, `params`).
+        - The first truthy value found is returned.
+- **Context Object:** Every template has access to a `context` object containing:
+    - `context.query`: `URLSearchParams` from the request.
+    - `context.params`: Route parameters (e.g., for `/users/:id`).
+    - `context.headers`: Request headers.
 
 ---
 
@@ -218,6 +235,7 @@ This section provides instructions for an AI on how to modify the framework.
 ---
 
 ## 8. Recent Improvements & Rationale
+- **In-Memory Caching with Pre-warming**: Added a configurable, in-memory caching layer to dramatically improve performance for repeated requests. The cache is pre-warmed at server startup to ensure even the first page load is fast. This reduces server load and latency.
 - **Automated CSS injection:** SSR now automatically injects a `<link rel="stylesheet">` tag for matching `.css` files for both app and route components. This reduces manual errors and keeps templates clean.
 - **No hardcoded CSS links in templates:** CLI generators no longer add `<link rel="stylesheet">` tags; injection is handled by SSR for consistency.
 - **Static file serving for `/routes/...`:** The server now maps `/routes/...` URLs to `src/routes/...` for assets like CSS, ensuring correct loading for all routes and simplifying asset management.
