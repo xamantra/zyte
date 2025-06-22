@@ -29,6 +29,24 @@ Interactivity is achieved by creating a `.client.ts` file alongside its correspo
 - **CSS**: A `.css` file with the same basename as a component (e.g., `about.css` for `about.ts`) is automatically discovered by the `render` method in `src/index.ts`. If found, a `<link rel="stylesheet">` tag pointing to the corresponding asset path is injected into the HTML `<head>`.
 - **Client Scripts**: Bundled `.client.js` files are injected as `<script type="module">` tags just before the closing `</body>` tag by the request handler in `src/server.ts`.
 
+### Comprehensive Static File Serving
+The framework serves any file that doesn't have a `.ts` or `.html` extension as static content, automatically supporting all common web assets without configuration. This includes:
+- **Web essentials**: `robots.txt`, `sitemap.xml`, `favicon.ico`, `manifest.json`
+- **Images**: Any image format (`.png`, `.jpg`, `.webp`, `.svg`, `.ico`, etc.)
+- **Fonts**: All font formats (`.woff`, `.woff2`, `.ttf`, `.otf`, etc.)
+- **Documents**: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, etc.
+- **Archives**: `.zip`, `.tar`, `.gz`, `.rar`, etc.
+- **Media**: Any audio/video format (`.mp4`, `.webm`, `.mp3`, `.wav`, etc.)
+- **Data files**: `.json`, `.csv`, `.xml`, `.yaml`, `.yml`, etc.
+- **And any other file type** users might need
+
+**File Resolution Order:**
+1. `dist/client/` - For built assets
+2. `src/app/` - For app-level static files  
+3. `src/routes/` - For route-specific static files
+
+**Directory Safety:** The system includes checks to ensure only actual files (not directories) are served, preventing `EISDIR` errors when users request paths with trailing slashes.
+
 ### In-Memory Caching
 The framework implements a configurable in-memory caching layer to reduce render times for frequently accessed pages. The cache is a `Map` stored in `src/server.ts`.
 - **Cache Key**: The URL path of the incoming request.
@@ -160,7 +178,7 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
     - **Request Handler (`fetch` method of `Bun.serve`):** This is the core request-response pipeline.
         1. **Caching:** Checks if a valid, non-stale cached response exists for the request path. If so, serves it immediately.
         2. **Keep-Alive:** Responds to `/__zyte_keepalive` with a JSON status object.
-        3. **Static Assets:** If the request URL path matches a static file extension (e.g., `.css`, `.js`, `.png`), it attempts to serve a physical file from `dist/client/` or `src/`.
+        3. **Static Assets:** If the request URL path doesn't end in `.ts` or `.html`, it attempts to serve a physical file from `dist/client/`, `src/app/`, or `src/routes/`. The system includes directory safety checks to prevent `EISDIR` errors.
         4. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
     - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it calls a dedicated `injectClientScript` helper to check if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
     - **Image Lazy Loading:** After script injection, the final HTML is passed through the `injectLazyLoading` function, which automatically adds `loading="lazy"` to all `<img>` tags that don't already have a loading attribute. This is an automatic, non-configurable performance enhancement.
@@ -235,7 +253,7 @@ This section provides instructions for an AI on how to modify the framework.
     - To support more complex data types in function arguments, enhance `parseTemplateArgs`.
 
 - **To Modify Static File Serving:**
-    - The logic resides in the `fetch` handler in `src/server.ts`. To add a new directory for static assets, add another `if (await fileExists(...))` check in the static asset handling section.
+    - The logic resides in the `fetch` handler in `src/server.ts`. The current implementation uses a negative regex pattern (`!/\.(ts|html)$/`) to serve any file that doesn't have `.ts` or `.html` extensions. To modify this behavior, update the regex pattern and the file resolution logic.
 
 - **To Update Scaffolding Templates:**
     - The file contents for `zyte new` and `zyte add-route` are hardcoded as multi-line string literals inside the `createNewProject` and `addRoute` functions in `src/cli.ts`. Modify these strings directly to change the generated code.
@@ -243,6 +261,7 @@ This section provides instructions for an AI on how to modify the framework.
 ---
 
 ## 8. Recent Improvements & Rationale
+- **Comprehensive Static File Serving**: Enhanced the static file serving system to automatically serve any file that doesn't have a `.ts` or `.html` extension. This eliminates the need to maintain a list of supported file extensions and provides future-proof support for any file type users might need. The system includes directory safety checks to prevent `EISDIR` errors when users request paths with trailing slashes.
 - **In-Memory Caching with Pre-warming**: Added a configurable, in-memory caching layer to dramatically improve performance for repeated requests. The cache is pre-warmed at server startup to ensure even the first page load is fast. This reduces server load and latency.
 - **Gzip Compression**: Implemented automatic gzip compression for all server responses where the client supports it. This is done after caching to reduce bandwidth without caching compressed content, providing a balance of speed and efficiency.
 - **Automatic Image Lazy Loading**: To improve initial page load performance, the framework now automatically adds `loading="lazy"` to all `<img>` tags in the rendered HTML. This browser-native feature defers the loading of off-screen images until the user scrolls near them, reducing network bandwidth and speeding up the initial render.
@@ -263,4 +282,4 @@ This section provides instructions for an AI on how to modify the framework.
 - **When updating dependencies:**
   - Only esbuild should be required for client bundling; avoid adding runtime dependencies.
 
---- 
+---

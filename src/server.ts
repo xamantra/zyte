@@ -1,6 +1,6 @@
 import { createSSR, SSRContext } from './index';
 import { extname, join } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 
 const ssrCache = new Map<string, { content: string; timestamp: number }>();
 
@@ -120,13 +120,13 @@ export async function startServer(options: ServerOptions = {}) {
     }
 
     // Serve static files from dist/client, src/app, and src/routes
-    if (/\.(css|js|png|jpg|jpeg|gif|svg)$/.test(path)) {
+    if (!/\.(ts|html)$/.test(path)) {
       // Try dist/client first
       let filePath = join(process.cwd(), 'dist', path);
-      if (!existsSync(filePath)) {
+      if (!existsSync(filePath) || !statSync(filePath).isFile()) {
         // Try src/app
         filePath = join(process.cwd(), 'src', 'app', path.split('/').pop()!);
-        if (!existsSync(filePath)) {
+        if (!existsSync(filePath) || !statSync(filePath).isFile()) {
           // Try src/routes/<...> for /routes/...
           const parts = path.split('/');
           if (parts[1] === 'routes' && parts.length > 2) {
@@ -134,7 +134,7 @@ export async function startServer(options: ServerOptions = {}) {
           }
         }
       }
-      if (existsSync(filePath)) {
+      if (existsSync(filePath) && statSync(filePath).isFile()) {
         const ext = extname(filePath);
         const contentType =
           ext === '.css' ? 'text/css'
@@ -143,7 +143,22 @@ export async function startServer(options: ServerOptions = {}) {
                 : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
                   : ext === '.gif' ? 'image/gif'
                     : ext === '.svg' ? 'image/svg+xml'
-                      : 'application/octet-stream';
+                      : ext === '.ico' ? 'image/x-icon'
+                        : ext === '.txt' ? 'text/plain'
+                          : ext === '.xml' ? 'application/xml'
+                            : ext === '.json' ? 'application/json'
+                              : ext === '.webp' ? 'image/webp'
+                                : ext === '.woff' ? 'font/woff'
+                                  : ext === '.woff2' ? 'font/woff2'
+                                    : ext === '.ttf' ? 'font/ttf'
+                                      : ext === '.eot' ? 'application/vnd.ms-fontobject'
+                                        : ext === '.pdf' ? 'application/pdf'
+                                          : ext === '.zip' ? 'application/zip'
+                                            : ext === '.mp4' ? 'video/mp4'
+                                              : ext === '.webm' ? 'video/webm'
+                                                : ext === '.mp3' ? 'audio/mpeg'
+                                                  : ext === '.wav' ? 'audio/wav'
+                                                    : 'application/octet-stream';
         return new Response(readFileSync(filePath), {
           headers: { 'Content-Type': contentType }
         });

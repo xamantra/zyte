@@ -643,3 +643,66 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ## License
 MIT 
+
+---
+
+## Static File Serving
+
+Zyte SSR automatically serves any file that doesn't have a `.ts` or `.html` extension as static content. This provides comprehensive support for all common web assets without any configuration.
+
+### Supported File Types
+
+The framework automatically serves any file type, including:
+
+- **Web Essentials**: `robots.txt`, `sitemap.xml`, `favicon.ico`, `manifest.json`
+- **Images**: Any image format (`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, etc.)
+- **Fonts**: All font formats (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`, etc.)
+- **Documents**: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, etc.
+- **Archives**: `.zip`, `.tar`, `.gz`, `.rar`, etc.
+- **Media**: Any audio/video format (`.mp4`, `.webm`, `.mp3`, `.wav`, etc.)
+- **Data Files**: `.json`, `.csv`, `.xml`, `.yaml`, `.yml`, etc.
+- **And any other file type** you might need
+
+### File Placement
+
+Place static files in any of these locations:
+
+1. **`src/app/`** - For app-level static files (e.g., `src/app/robots.txt`)
+2. **`src/routes/`** - For route-specific static files (e.g., `src/routes/about/logo.png`)
+3. **`dist/client/`** - For built assets (auto-generated during build)
+
+### URL Access
+
+Files are accessible at their corresponding URLs:
+
+```bash
+# Files in src/app/
+src/app/robots.txt          → /robots.txt
+src/app/favicon.ico         → /favicon.ico
+src/app/sitemap.xml         → /sitemap.xml
+
+# Files in src/routes/
+src/routes/about/logo.png   → /routes/about/logo.png
+src/routes/blog/header.jpg  → /routes/blog/header.jpg
+
+# Files in dist/client/
+dist/client/app.css         → /app.css
+dist/client/counter.js      → /counter.js
+```
+
+### Example Usage
+
+```bash
+# Create a robots.txt file
+echo "User-agent: *\nAllow: /" > src/app/robots.txt
+
+# Add a favicon
+cp favicon.ico src/app/favicon.ico
+
+# Add route-specific images
+cp logo.png src/routes/about/logo.png
+```
+
+The files will be automatically served with the correct MIME types and no additional configuration required.
+
+--- 
