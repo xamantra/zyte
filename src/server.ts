@@ -35,6 +35,12 @@ function injectClientScript(path: string, html: string): string {
   return html;
 }
 
+function injectLazyLoading(html: string): string {
+  // Add loading="lazy" to all <img> tags that don't already have a loading attribute.
+  // This is a simple, non-breaking performance enhancement.
+  return html.replace(/<img(?![^>]*loading=)/gi, '<img loading="lazy" ');
+}
+
 export async function startServer(options: ServerOptions = {}) {
   // Try to load server configuration from project root or src directory
   let projectConfig: ServerOptions = {};
@@ -81,6 +87,7 @@ export async function startServer(options: ServerOptions = {}) {
         const context: SSRContext = { params: {}, query: {}, headers: {} };
         let html = await ssr.render(path, context);
         html = injectClientScript(path, html);
+        html = injectLazyLoading(html);
         ssrCache.set(path, { content: html, timestamp: Date.now() });
         console.log(`  - Cached: ${path}`);
       } catch (error) {
@@ -183,6 +190,7 @@ export async function startServer(options: ServerOptions = {}) {
 
       // Determine possible client bundle path dynamically
       html = injectClientScript(path, html);
+      html = injectLazyLoading(html);
 
       // --- Cache Population ---
       if (CACHE_ENABLED) {

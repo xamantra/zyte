@@ -41,6 +41,9 @@ The framework implements a configurable in-memory caching layer to reduce render
 ### Gzip Compression
 The server automatically compresses HTTP responses with gzip for clients that support it (via the `Accept-Encoding` header). This is handled transparently in `src/server.ts` as a middleware-like wrapper around the main request handler. Compression is applied *after* the in-memory cache check, ensuring that the cache stores raw, uncompressed HTML, and compression is a final, on-the-fly step before sending the response. This optimizes both CPU usage (by not re-rendering) and bandwidth.
 
+### Automatic Image Lazy Loading
+To improve initial page load performance, the framework automatically adds `loading="lazy"` to all `<img>` tags in rendered HTML that do not already have a `loading` attribute. This is handled by the `injectLazyLoading` function in `src/server.ts` just before the final response is prepared. This native browser feature defers the loading of off-screen images, reducing initial network bandwidth and speeding up perceived load time.
+
 ---
 
 ## 3. Project Structure
@@ -160,6 +163,7 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
         3. **Static Assets:** If the request URL path matches a static file extension (e.g., `.css`, `.js`, `.png`), it attempts to serve a physical file from `dist/client/` or `src/`.
         4. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
     - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it calls a dedicated `injectClientScript` helper to check if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
+    - **Image Lazy Loading:** After script injection, the final HTML is passed through the `injectLazyLoading` function, which automatically adds `loading="lazy"` to all `<img>` tags that don't already have a loading attribute. This is an automatic, non-configurable performance enhancement.
     - **Cache Population:** After a page is rendered, if the request is cacheable (`GET` with no query parameters) and caching is enabled, the final HTML is stored in the `ssrCache` with a timestamp.
     - **Gzip Compression**: After the main `handler` function resolves a response (either from cache or by rendering), the `fetch` method in `Bun.serve` inspects the request's `Accept-Encoding` header. If `gzip` is supported, it compresses the response body using `Bun.gzipSync` before sending it.
 
@@ -241,6 +245,7 @@ This section provides instructions for an AI on how to modify the framework.
 ## 8. Recent Improvements & Rationale
 - **In-Memory Caching with Pre-warming**: Added a configurable, in-memory caching layer to dramatically improve performance for repeated requests. The cache is pre-warmed at server startup to ensure even the first page load is fast. This reduces server load and latency.
 - **Gzip Compression**: Implemented automatic gzip compression for all server responses where the client supports it. This is done after caching to reduce bandwidth without caching compressed content, providing a balance of speed and efficiency.
+- **Automatic Image Lazy Loading**: To improve initial page load performance, the framework now automatically adds `loading="lazy"` to all `<img>` tags in the rendered HTML. This browser-native feature defers the loading of off-screen images until the user scrolls near them, reducing network bandwidth and speeding up the initial render.
 - **Automated CSS injection:** SSR now automatically injects a `<link rel="stylesheet">` tag for matching `.css` files for both app and route components. This reduces manual errors and keeps templates clean.
 - **No hardcoded CSS links in templates:** CLI generators no longer add `<link rel="stylesheet">` tags; injection is handled by SSR for consistency.
 - **Static file serving for `/routes/...`:** The server now maps `/routes/...` URLs to `src/routes/...` for assets like CSS, ensuring correct loading for all routes and simplifying asset management.
