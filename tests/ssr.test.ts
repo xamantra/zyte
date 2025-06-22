@@ -1,8 +1,7 @@
-import { describe, it, expect } from 'bun:test';
-import { ZyteSSR } from '../src/index';
+import { describe, it, expect, afterAll } from 'bun:test';
+import { SSRContext, ZyteSSR, createSSR, render as zyteRender } from '../src/index';
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createSSR } from '../src/index';
 import { setTimeout as delay } from 'timers/promises';
 
 const TMP_DIR = join(process.cwd(), 'tests', 'tmp');
@@ -17,6 +16,11 @@ const ROUTE_HTML = join(ROUTE_DIR, 'foo.html');
 const ROUTE_CSS = join(ROUTE_DIR, 'foo.css');
 const DIST_CLIENT_ROUTE_DIR = join(TMP_DIR, 'dist', 'client', 'routes', 'foo');
 const CLIENT_JS = join(DIST_CLIENT_ROUTE_DIR, 'foo.client.js');
+
+const ROOT_APP_DIR = join(process.cwd(), 'src', 'app');
+if (!existsSync(ROOT_APP_DIR)) mkdirSync(ROOT_APP_DIR, { recursive: true });
+writeFileSync(join(ROOT_APP_DIR, 'app.ts'), 'export function appPage() { return "hi"; }');
+writeFileSync(join(ROOT_APP_DIR, 'app.html'), '<html><head></head><body>{{ appPage() }}</body></html>');
 
 function setupAppFiles() {
   if (!existsSync(APP_DIR)) mkdirSync(APP_DIR, { recursive: true });
@@ -339,5 +343,134 @@ export function showPage(page: string) {
     expect(html).not.toContain('Zyte SSR Interactivity Script');
     expect(html).not.toContain('navigateTo');
     cleanupAll();
+  });
+
+  it('handles unsupported component type', async () => {
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    // @ts-ignore
+    await expect(ssr['loadComponent']('foo.txt')).rejects.toThrow('Unsupported component type');
+  });
+
+  it('handles template expression errors gracefully', async () => {
+    setupAppFiles();
+    writeFileSync(APP_HTML, `<!DOCTYPE html><html><body>{{ throwsError() }}</body></html>`);
+    writeFileSync(APP_TS, `export function throwsError() { throw new Error('fail!'); }`);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const html = await ssr.render('/', { params: {}, query: {}, headers: {} });
+    expect(html).toContain('{{ throwsError() }}'); // Should not crash, just output the tag
+    cleanupAll();
+  });
+
+  it('parses all argument types in templates', async () => {
+    setupAppFiles();
+    writeFileSync(APP_HTML, `<!DOCTYPE html><html><body>
+      {{ str("hello") }}
+      {{ num(42) }}
+      {{ bool(true) }}
+      {{ nil(null) }}
+      {{ undef(undefined) }}
+      {{ q(query.q) }}
+      {{ p(params.p) }}
+      {{ h(headers.h) }}
+      {{ or(query.q || "fallback") }}
+    </body></html>`);
+    writeFileSync(APP_TS, `
+      export function str(x) { return x; }
+      export function num(x) { return x; }
+      export function bool(x) { return x; }
+      export function nil(x) { return x === null ? 'null' : 'not null'; }
+      export function undef(x) { return x === undefined ? 'undefined' : 'not undefined'; }
+      export function q(x) { return x; }
+      export function p(x) { return x; }
+      export function h(x) { return x; }
+      export function or(x) { return x; }
+    `);
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const html = await ssr.render('/', {
+      params: { p: 'P' },
+      query: { q: '' },
+      headers: { h: 'H' }
+    });
+    expect(html).toContain('hello');
+    expect(html).toContain('42');
+    expect(html).toContain('true');
+    expect(html).toContain('null');
+    expect(html).toContain('undefined');
+    expect(html).toContain('P');
+    expect(html).toContain('H');
+    expect(html).toContain('fallback');
+    cleanupAll();
+  });
+});
+
+describe('ZyteSSR function coverage', () => {
+  afterAll(cleanupAll);
+
+  it('getRoutesMap and getRoutes', () => {
+    setupAppFiles();
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    expect(ssr.getRoutesMap()).toBeInstanceOf(Map);
+    expect(Array.isArray(ssr.getRoutes())).toBe(true);
+  });
+
+  it('render404', () => {
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    expect(ssr['render404']()).toContain('404');
+  });
+
+  it('findRoute all branches', () => {
+    setupAppFiles();
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    // No routes, so all should return null
+    expect(ssr['findRoute']('/')).toBe(null);
+    expect(ssr['findRoute']('')).toBe(null);
+    expect(ssr['findRoute']('/notfound')).toBe(null);
+  });
+
+  it('loadComponent throws on unsupported type', async () => {
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    await expect(ssr['loadComponent']('foo.txt')).rejects.toThrow('Unsupported component type');
+  });
+
+  it('processTemplate handles errors', async () => {
+    setupAppFiles();
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const context: SSRContext = { params: {}, query: {}, headers: {} };
+    const html = await ssr['processTemplate']('<div>{{ notAFunction() }}</div>', {}, context);
+    expect(html).toContain('{{ notAFunction() }}');
+  });
+
+  it('parseTemplateArgs and evaluateSingleExpression all types', () => {
+    setupAppFiles();
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const ctx = { query: { q: 'Q' }, params: { p: 'P' }, headers: { h: 'H' } };
+    // string, number, boolean, null, undefined, context, property, nested, not found
+    expect(ssr['parseTemplateArgs'](`"str", 42, true, false, null, undefined, query.q, params.p, headers.h`, ctx)).toEqual([
+      'str', 42, true, false, null, undefined, 'Q', 'P', 'H'
+    ]);
+    // evaluateSingleExpression: string, number, boolean, null, undefined, property, nested, not found
+    expect(ssr['evaluateSingleExpression']('"str"', {}, ctx)).toBe('str');
+    expect(ssr['evaluateSingleExpression']('42', {}, ctx)).toBe(42);
+    expect(ssr['evaluateSingleExpression']('true', {}, ctx)).toBe(true);
+    expect(ssr['evaluateSingleExpression']('null', {}, ctx)).toBe(null);
+    expect(ssr['evaluateSingleExpression']('undefined', {}, ctx)).toBe(undefined);
+    expect(ssr['evaluateSingleExpression']('query.q', {}, ctx)).toBe('Q');
+    expect(ssr['evaluateSingleExpression']('notfound', {}, ctx)).toBe(undefined);
+    expect(ssr['evaluateSingleExpression']('foo.bar', { foo: { bar: 123 } }, ctx)).toBe(123);
+  });
+
+  it('evaluateExpression handles logical OR', () => {
+    setupAppFiles();
+    const ssr = new ZyteSSR({ baseDir: TMP_DIR });
+    const ctx = { query: { q: '' }, params: {}, headers: {} };
+    expect(ssr['evaluateExpression']('query.q || "fallback"', {}, ctx)).toBe('fallback');
+  });
+
+  it('createSSR and render exports', async () => {
+    setupAppFiles();
+    const ssr = createSSR({ baseDir: TMP_DIR });
+    expect(ssr).toBeInstanceOf(ZyteSSR);
+    const html = await zyteRender('/', { params: {}, query: {}, headers: {} });
+    expect(typeof html).toBe('string');
   });
 }); 

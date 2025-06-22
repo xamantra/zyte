@@ -114,3 +114,4 @@ example/
 *.cmd
 zyte-example/
 .coverage/lcov.info
+app
