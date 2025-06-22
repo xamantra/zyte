@@ -38,6 +38,9 @@ The framework implements a configurable in-memory caching layer to reduce render
 - **Cache Pre-warming**: At server startup, the framework iterates through all discovered routes, renders them with an empty context, and populates the cache. This ensures initial page loads are served from memory.
 - **Configuration**: Caching behavior can be controlled via `cacheEnabled` and `cacheMaxAge` options in `server.config.ts`.
 
+### Gzip Compression
+The server automatically compresses HTTP responses with gzip for clients that support it (via the `Accept-Encoding` header). This is handled transparently in `src/server.ts` as a middleware-like wrapper around the main request handler. Compression is applied *after* the in-memory cache check, ensuring that the cache stores raw, uncompressed HTML, and compression is a final, on-the-fly step before sending the response. This optimizes both CPU usage (by not re-rendering) and bandwidth.
+
 ---
 
 ## 3. Project Structure
@@ -158,6 +161,7 @@ All CLI logic resides in `src/cli.ts` and is executed by the `bin/zyte` scripts.
         4. **SSR Rendering:** For all other requests, it instantiates an `SSRContext` object (containing `query`, `params`, `headers`) and invokes `ssr.render()` from the `ZyteSSR` instance.
     - **Client Script Injection:** After receiving the rendered HTML from `ssr.render()`, it calls a dedicated `injectClientScript` helper to check if a corresponding bundled client script exists (e.g., `dist/client/about.js` for the `/about` route). If found, the HTML string is modified to inject a `<script type="module" src="/client/..."></script>` tag before the `</body>`.
     - **Cache Population:** After a page is rendered, if the request is cacheable (`GET` with no query parameters) and caching is enabled, the final HTML is stored in the `ssrCache` with a timestamp.
+    - **Gzip Compression**: After the main `handler` function resolves a response (either from cache or by rendering), the `fetch` method in `Bun.serve` inspects the request's `Accept-Encoding` header. If `gzip` is supported, it compresses the response body using `Bun.gzipSync` before sending it.
 
 #### `src/index.ts`
 - **Purpose:** The core SSR engine, responsible for route discovery, template processing, and rendering.
@@ -236,6 +240,7 @@ This section provides instructions for an AI on how to modify the framework.
 
 ## 8. Recent Improvements & Rationale
 - **In-Memory Caching with Pre-warming**: Added a configurable, in-memory caching layer to dramatically improve performance for repeated requests. The cache is pre-warmed at server startup to ensure even the first page load is fast. This reduces server load and latency.
+- **Gzip Compression**: Implemented automatic gzip compression for all server responses where the client supports it. This is done after caching to reduce bandwidth without caching compressed content, providing a balance of speed and efficiency.
 - **Automated CSS injection:** SSR now automatically injects a `<link rel="stylesheet">` tag for matching `.css` files for both app and route components. This reduces manual errors and keeps templates clean.
 - **No hardcoded CSS links in templates:** CLI generators no longer add `<link rel="stylesheet">` tags; injection is handled by SSR for consistency.
 - **Static file serving for `/routes/...`:** The server now maps `/routes/...` URLs to `src/routes/...` for assets like CSS, ensuring correct loading for all routes and simplifying asset management.

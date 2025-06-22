@@ -16,6 +16,7 @@ Zyte SSR is a simple, fast, and modern server-side rendering framework for Bun. 
 - 🗂 **File-based routing**: routes are just files in `src/routes/`
 - 🧩 **Reusable elements**: create custom components with exported functions
 - 🚀 **In-memory Caching**: Automatic in-memory caching for routes to accelerate response times, with pre-warming at server startup.
+- 🗜️ **Automatic Gzip Compression**: Compresses responses on-the-fly to reduce page load times.
 - 🛠 **Zero config**: no webpack, no babel, no fuss
 - 🧹 **No runtime dependencies** (except esbuild for dev/build)
 
@@ -487,6 +488,10 @@ Zyte SSR includes an in-memory caching system to improve performance.
 - **Configuration**: You can configure caching via `server.config.ts`:
     - `cacheEnabled`: Set to `false` to disable caching entirely.
     - `cacheMaxAge`: Sets the cache expiration time in milliseconds. The default is 5 minutes.
+
+### Gzip Compression
+
+To improve performance and reduce bandwidth, Zyte SSR automatically compresses server responses with gzip if the client's browser supports it. This happens automatically and requires no configuration. Compression is applied after retrieving a page from the cache, ensuring that both cached and newly rendered pages are served as efficiently as possible.
 
 ### Keep-Alive Endpoint
 

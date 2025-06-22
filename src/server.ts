@@ -225,9 +225,38 @@ export async function startServer(options: ServerOptions = {}) {
   const server = Bun.serve({
     port,
     async fetch(request: Request) {
-      return handler(request);
+      const response = await handler(request);
+
+      if (response.headers.has('Content-Encoding') || !response.body) {
+        return response;
+      }
+
+      const acceptEncoding = request.headers.get('accept-encoding') || '';
+      if (acceptEncoding.includes('gzip')) {
+        const body = await response.arrayBuffer();
+        if (body.byteLength === 0) {
+          return response;
+        }
+        const compressed = Bun.gzipSync(body);
+        const headers = new Headers(response.headers);
+        headers.set('Content-Encoding', 'gzip');
+        return new Response(compressed, {
+          status: response.status,
+          headers: headers
+        });
+      }
+
+      return response;
+    },
+    error(error: Error) {
+      console.error('Server error:', error);
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain' }
+      });
     }
   });
+
   const host = server.hostname || '0.0.0.0';
   const url = `http://${host}:${port}`;
 
