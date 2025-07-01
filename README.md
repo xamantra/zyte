@@ -941,4 +941,49 @@ Sitemap: https://example.com/sitemap.xml
 3. **Testing**: Test your robots.txt with Google Search Console's robots.txt tester
 4. **Integration**: Works seamlessly with the dynamic sitemap generation
 
+---
+
+## Security & XSS Protection
+
+**Zyte SSR does NOT escape any output by default.**
+
+- All template expressions (function calls, property accesses, etc.) are rendered as raw HTML.
+- It is the developer's responsibility to escape any untrusted data before including it in the output.
+- The framework provides an `html` tagged template function and an `escapeHtml` utility to help you safely interpolate dynamic values.
+
+### Recommended: Use the `html` Tag for Safe Interpolation
+
+```typescript
+import { html } from 'zyte';
+export function aboutPage(context) {
+  return html`<div>User: ${context.query.user}</div>`;
+}
+```
+- All interpolated values in the `html` tag are automatically escaped to prevent XSS.
+- The result is a string, which you can return from your component functions.
+
+### Manual Escaping
+If you are building HTML strings manually, use the `escapeHtml` utility:
+
+```typescript
+import { escapeHtml } from 'zyte';
+export function aboutPage(context) {
+  const user = escapeHtml(context.query.user);
+  return `<div>User: ${user}</div>`;
+}
+```
+
+### Example: Unsafe (Do NOT do this)
+```typescript
+export function aboutPage(context) {
+  // If context.query.user is untrusted, this is vulnerable to XSS!
+  return `<div>User: ${context.query.user}</div>`;
+}
+```
+
+**Summary:**
+- Use the `html` tag for new code or when interpolating untrusted data.
+- All output is rendered as raw HTML unless you escape it yourself.
+- There is no automatic XSS protection at the framework level.
+
 --- 

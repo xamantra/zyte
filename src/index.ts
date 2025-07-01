@@ -152,39 +152,29 @@ export class ZyteSSR {
   }
 
   private async processTemplate(html: string, component: any, context: SSRContext): Promise<string> {
-    // Enhanced template processing - support multiple exports and more flexible expressions
-    // Supports: {{ functionName() }}, {{ functionName('arg') }}, {{ functionName(arg1, arg2) }}
-    // Also supports: {{ query.paramName }}, {{ params.paramName }}, {{ headers.headerName }}
     const regex = /\{\{\s*([^}]+)\s*\}\}/g;
     let result = '';
     let lastIndex = 0;
     let match: RegExpExecArray | null;
-    
     while ((match = regex.exec(html)) !== null) {
       result += html.slice(lastIndex, match.index);
       const expression = match[1].trim();
-      
       try {
-        // Handle function calls with or without arguments
         const funcMatch = expression.match(/^(\w+)\s*\(([^)]*)\)$/);
         if (funcMatch) {
           const [, funcName, argsStr] = funcMatch;
           const func = component[funcName];
-          
           if (typeof func === 'function') {
-            // Parse arguments - support strings, numbers, and simple expressions
             const args = argsStr ? this.parseTemplateArgs(argsStr, context) : [];
-            // Pass context as the last argument to functions
             const value = await func(...args, context);
-            result += (value ?? ''); // Coalesce null/undefined to empty string
+            result += (value ?? '');
           } else {
             console.warn(`Function ${funcName} not found in component`);
             result += match[0];
           }
         } else {
-          // Handle simple property access or expressions
           const value = this.evaluateExpression(expression, component, context);
-          result += (value ?? ''); // Coalesce null/undefined to empty string
+          result += (value ?? '');
         }
       } catch (error) {
         console.error(`Error processing template expression ${expression}:`, error);
@@ -335,4 +325,41 @@ export function createSSR(options?: ZyteSSROptions): ZyteSSR {
 export function render(path: string, context?: SSRContext): Promise<string> {
   const ssr = new ZyteSSR();
   return ssr.render(path, context);
-} 
+}
+
+// --- Built-in anti-XSS: HTML escaping helper (for use in html tag) ---
+export function escapeHtml(str: any): string {
+  if (str == null) return '';
+  if (typeof str !== 'string') str = String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * html tagged template literal for safe HTML interpolation.
+ * Usage:
+ *   import { html } from 'zyte';
+ *   export function aboutPage(context) {
+ *     return html`<div>User: ${context.query.user}</div>`;
+ *   }
+ * All interpolated values are automatically escaped to prevent XSS.
+ * The result is a string, which you can return from your component functions.
+ *
+ * NOTE: The framework does NOT escape any output by default. It is the developer's responsibility
+ * to use the html tag or escapeHtml utility for any untrusted data.
+ */
+export function html(strings: TemplateStringsArray, ...values: any[]): string {
+  let result = '';
+  for (let i = 0; i < strings.length; i++) {
+    result += strings[i];
+    if (i < values.length) {
+      result += escapeHtml(values[i]);
+    }
+  }
+  return result;
+}
+// --- End anti-XSS helpers --- 

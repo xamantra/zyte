@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'bun:test';
-import { SSRContext, ZyteSSR, createSSR, render as zyteRender } from '../src/index';
+import { SSRContext, ZyteSSR, createSSR, render as zyteRender, html, escapeHtml } from '../src/index';
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { setTimeout as delay } from 'timers/promises';
@@ -400,6 +400,16 @@ export function showPage(page: string) {
     expect(html).toContain('H');
     expect(html).toContain('fallback');
     cleanupAll();
+  });
+
+  it('html tagged template escapes interpolated values', () => {
+    const user = '<script>alert(1)</script>';
+    const safe = html`<div>User: ${user}</div>`;
+    expect(safe).toBe('<div>User: &lt;script&gt;alert(1)&lt;/script&gt;</div>');
+    const normal = html`<div>User: JohnDoe</div>`;
+    expect(normal).toBe('<div>User: JohnDoe</div>');
+    // Also test escapeHtml utility
+    expect(escapeHtml('<b>bold</b>')).toBe('&lt;b&gt;bold&lt;/b&gt;');
   });
 });
 
